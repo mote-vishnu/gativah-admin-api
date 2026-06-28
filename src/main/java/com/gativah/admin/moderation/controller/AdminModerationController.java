@@ -46,7 +46,7 @@ public class AdminModerationController {
     @GetMapping("/api/v1/admin/reports")
     @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
     public Page<ReportSummary> reports(
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) List<String> status,
             @RequestParam(required = false) String contentType,
             @RequestParam(required = false) String reason,
             @PageableDefault(size = 20) Pageable pageable) {

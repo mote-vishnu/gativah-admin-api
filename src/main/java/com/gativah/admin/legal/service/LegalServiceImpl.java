@@ -42,10 +42,10 @@ public class LegalServiceImpl implements LegalService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<LegalRequestSummary> list(String status, Pageable pageable) {
-        Page<LegalRequest> page = status == null
+    public Page<LegalRequestSummary> list(List<String> statuses, Pageable pageable) {
+        Page<LegalRequest> page = (statuses == null || statuses.isEmpty())
                 ? requests.findAllByOrderByReceivedAtDesc(pageable)
-                : requests.findByStatusOrderByReceivedAtDesc(status, pageable);
+                : requests.findByStatusInOrderByReceivedAtDesc(statuses, pageable);
         return page.map(this::toSummary);
     }
 

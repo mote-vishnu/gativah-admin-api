@@ -15,7 +15,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface ModerationService {
 
-    Page<ReportSummary> queue(String status, String contentType, String reason, Pageable pageable);
+    Page<ReportSummary> queue(List<String> statuses, String contentType, String reason, Pageable pageable);
 
     ReportDetail detail(Long reportId);
 

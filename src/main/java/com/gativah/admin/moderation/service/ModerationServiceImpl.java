@@ -53,8 +53,8 @@ public class ModerationServiceImpl implements ModerationService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ReportSummary> queue(String status, String contentType, String reason, Pageable pageable) {
-        return query.queue(status, contentType, reason, pageable);
+    public Page<ReportSummary> queue(List<String> statuses, String contentType, String reason, Pageable pageable) {
+        return query.queue(statuses, contentType, reason, pageable);
     }
 
     @Override

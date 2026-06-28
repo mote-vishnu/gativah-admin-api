@@ -32,10 +32,10 @@ public class ModerationQueryJdbc implements ModerationQuery {
 
     // Each named param expands to a distinct positional placeholder, so the
     // standalone "is null" check must be cast or Postgres can't infer its type
-    // ("could not determine data type of parameter $1").
+    // ("could not determine data type of parameter $1"). A multi-value status
+    // filter is appended as an in-clause only when values are supplied.
     private static final String FILTER = """
-            where (cast(:status as varchar) is null or cr.status = :status)
-              and (cast(:contentType as varchar) is null or cr.content_type = :contentType)
+            where (cast(:contentType as varchar) is null or cr.content_type = :contentType)
               and (cast(:reason as varchar) is null or cr.reason = :reason)
             """;
 
@@ -46,13 +46,17 @@ public class ModerationQueryJdbc implements ModerationQuery {
     }
 
     @Override
-    public Page<ReportSummary> queue(String status, String contentType, String reason, Pageable pageable) {
+    public Page<ReportSummary> queue(List<String> statuses, String contentType, String reason, Pageable pageable) {
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("status", status)
                 .addValue("contentType", contentType)
                 .addValue("reason", reason);
+        String filter = FILTER;
+        if (statuses != null && !statuses.isEmpty()) {
+            filter = filter + " and cr.status in (:statuses)";
+            params.addValue("statuses", statuses);
+        }
 
-        Long total = jdbc.queryForObject("select count(*) " + JOINS + FILTER, params, Long.class);
+        Long total = jdbc.queryForObject("select count(*) " + JOINS + filter, params, Long.class);
         long count = total == null ? 0 : total;
         if (count == 0) {
             return new PageImpl<>(List.of(), pageable, 0);
@@ -62,7 +66,7 @@ public class ModerationQueryJdbc implements ModerationQuery {
                 + "cr.reporter_user_id, ru.username as reporter_username, "
                 + "coalesce(p.author_user_id, c.author_user_id) as author_user_id, au.username as author_username, "
                 + "left(coalesce(p.content, c.content), 160) as snippet, cr.assignee_admin_id "
-                + JOINS + FILTER
+                + JOINS + filter
                 + " order by cr.created_at desc limit :limit offset :offset";
         params.addValue("limit", pageable.getPageSize());
         params.addValue("offset", pageable.getOffset());

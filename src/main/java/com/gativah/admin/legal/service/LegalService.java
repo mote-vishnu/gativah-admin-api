@@ -1,5 +1,7 @@
 package com.gativah.admin.legal.service;
 
+import java.util.List;
+
 import com.gativah.admin.legal.dto.CreateLegalRequest;
 import com.gativah.admin.legal.dto.DisclosureRow;
 import com.gativah.admin.legal.dto.LegalRequestDetail;
@@ -12,7 +14,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface LegalService {
 
-    Page<LegalRequestSummary> list(String status, Pageable pageable);
+    Page<LegalRequestSummary> list(List<String> statuses, Pageable pageable);
 
     LegalRequestDetail detail(Long id);
 

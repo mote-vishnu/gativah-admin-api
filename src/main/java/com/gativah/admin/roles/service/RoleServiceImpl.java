@@ -28,6 +28,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class RoleServiceImpl implements RoleService {
 
+    private static final String SUPER_ADMIN = "SUPER_ADMIN";
+
     private final AdminRoleRepository roleRepo;
     private final AdminPermissionRepository permissionRepo;
     private final AdminFeatureRepository featureRepo;
@@ -93,10 +95,15 @@ public class RoleServiceImpl implements RoleService {
     public RoleResponse update(Long actorAdminId, Long id, UpdateRoleRequest req) {
         AdminRole role = roleRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found: " + id));
-        if (role.isSystem()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "System roles cannot be modified");
+        // SUPER_ADMIN is the safety net — its permission set must stay complete, so it's immutable.
+        if (SUPER_ADMIN.equals(role.getName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "SUPER_ADMIN cannot be modified");
         }
         if (req.name() != null && !req.name().trim().isEmpty()) {
+            // A built-in role's name is referenced in code/migrations — only custom roles can be renamed.
+            if (role.isSystem()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "A system role's name cannot be changed");
+            }
             String name = req.name().trim();
             roleRepo.findByName(name).ifPresent(existing -> {
                 if (!existing.getId().equals(id)) {

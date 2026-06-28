@@ -115,14 +115,45 @@ class RoleServiceImplTest {
     }
 
     @Test
-    void update_rejects_system_role() {
+    void update_rejects_super_admin() {
         AdminRole sys = new AdminRole();
         sys.setId(1L);
         sys.setName("SUPER_ADMIN");
         sys.setSystem(true);
         when(roleRepo.findById(1L)).thenReturn(Optional.of(sys));
 
-        assertThatThrownBy(() -> service.update(1L, 1L, new UpdateRoleRequest("x", null, null)))
+        assertThatThrownBy(() -> service.update(1L, 1L, new UpdateRoleRequest(null, null, List.of())))
+                .isInstanceOf(ResponseStatusException.class);
+        verify(roleRepo, never()).save(any());
+    }
+
+    @Test
+    void update_allows_permissions_on_a_non_super_system_role() {
+        AdminFeature finance = feature(1L, "FINANCE", 0);
+        AdminRole moderator = new AdminRole();
+        moderator.setId(2L);
+        moderator.setName("MODERATOR");
+        moderator.setSystem(true);
+        when(roleRepo.findById(2L)).thenReturn(Optional.of(moderator));
+        when(permissionRepo.findById(10L)).thenReturn(Optional.of(permission(10L, finance, "VIEW")));
+        when(roleRepo.save(any(AdminRole.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepo.countByRoles_Id(2L)).thenReturn(0L);
+
+        RoleResponse res = service.update(1L, 2L, new UpdateRoleRequest(null, "Triage", List.of(10L)));
+
+        assertThat(res.permissions()).containsExactly("FINANCE:VIEW");
+        verify(audit).record(any(), eq("ROLE_UPDATE"), anyString(), anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    void update_rejects_renaming_a_system_role() {
+        AdminRole moderator = new AdminRole();
+        moderator.setId(2L);
+        moderator.setName("MODERATOR");
+        moderator.setSystem(true);
+        when(roleRepo.findById(2L)).thenReturn(Optional.of(moderator));
+
+        assertThatThrownBy(() -> service.update(1L, 2L, new UpdateRoleRequest("Renamed", null, null)))
                 .isInstanceOf(ResponseStatusException.class);
         verify(roleRepo, never()).save(any());
     }

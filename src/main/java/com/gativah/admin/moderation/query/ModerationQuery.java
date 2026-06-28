@@ -1,5 +1,7 @@
 package com.gativah.admin.moderation.query;
 
+import java.util.List;
+
 import com.gativah.admin.moderation.dto.ReportDetail;
 import com.gativah.admin.moderation.dto.ReportSummary;
 
@@ -9,7 +11,7 @@ import org.springframework.data.domain.Pageable;
 /** Read side of the grievance queue — cross-table joins kept out of JPA. */
 public interface ModerationQuery {
 
-    Page<ReportSummary> queue(String status, String contentType, String reason, Pageable pageable);
+    Page<ReportSummary> queue(List<String> statuses, String contentType, String reason, Pageable pageable);
 
     ReportDetail detail(Long reportId);
 

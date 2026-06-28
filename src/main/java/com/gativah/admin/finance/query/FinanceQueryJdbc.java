@@ -1,6 +1,7 @@
 package com.gativah.admin.finance.query;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -158,7 +159,7 @@ public class FinanceQueryJdbc implements FinanceQuery {
                 + "and received_at >= now() - interval '24 hours'");
         long dead = count("select count(*) from billing_event where status='DEAD_LETTER'");
         LocalDateTime lastProcessed = ts(jdbc.queryForObject(
-                "select max(processed_at) from billing_event", new MapSqlParameterSource(), java.sql.Timestamp.class));
+                "select max(processed_at) from billing_event", new MapSqlParameterSource(), Timestamp.class));
         List<DeadLetterRow> recent = jdbc.query(
                 "select id,platform,event_type,attempts,last_error,received_at from billing_event "
                         + "where status='DEAD_LETTER' order by received_at desc limit 20",
@@ -187,7 +188,7 @@ public class FinanceQueryJdbc implements FinanceQuery {
         }
     }
 
-    private static LocalDateTime ts(java.sql.Timestamp t) {
+    private static LocalDateTime ts(Timestamp t) {
         return t == null ? null : t.toLocalDateTime();
     }
 }

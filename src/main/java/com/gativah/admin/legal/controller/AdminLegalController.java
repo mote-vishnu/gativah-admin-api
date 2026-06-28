@@ -1,5 +1,7 @@
 package com.gativah.admin.legal.controller;
 
+import java.util.List;
+
 import jakarta.validation.Valid;
 
 import com.gativah.admin.auth.security.AdminPrincipal;
@@ -36,7 +38,7 @@ public class AdminLegalController {
 
     @GetMapping("/api/v1/admin/legal/requests")
     @PreAuthorize("hasAuthority('LEGAL:VIEW')")
-    public Page<LegalRequestSummary> requests(@RequestParam(required = false) String status,
+    public Page<LegalRequestSummary> requests(@RequestParam(required = false) List<String> status,
                                               @PageableDefault(size = 20) Pageable pageable) {
         return service.list(status, pageable);
     }
