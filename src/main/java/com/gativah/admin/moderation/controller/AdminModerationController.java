@@ -1,10 +1,17 @@
 package com.gativah.admin.moderation.controller;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.validation.Valid;
 
 import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.moderation.dto.AppealResolveRequest;
 import com.gativah.admin.moderation.dto.AppealRow;
+import com.gativah.admin.moderation.dto.AssignRequest;
+import com.gativah.admin.moderation.dto.BulkAssignRequest;
+import com.gativah.admin.moderation.dto.BulkResolveRequest;
+import com.gativah.admin.moderation.dto.BulkResolveResponse;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
 import com.gativah.admin.moderation.dto.ReportDetail;
 import com.gativah.admin.moderation.dto.ReportSummary;
@@ -19,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -56,6 +64,40 @@ public class AdminModerationController {
     public ResolveResponse resolve(@AuthenticationPrincipal AdminPrincipal principal,
                                    @PathVariable Long id, @Valid @RequestBody ResolveRequest req) {
         return service.resolve(principal.id(), id, req);
+    }
+
+    @PostMapping("/api/v1/admin/reports/bulk-resolve")
+    @PreAuthorize("hasAuthority('GRIEVANCES:EDIT')")
+    public BulkResolveResponse bulkResolve(@AuthenticationPrincipal AdminPrincipal principal,
+                                           @Valid @RequestBody BulkResolveRequest req) {
+        List<Long> failed = new ArrayList<>();
+        int resolved = 0;
+        for (Long id : req.ids()) {
+            try {
+                // Each call is its own transaction (proxied), so one failure can't abort the rest.
+                service.resolve(principal.id(), id, new ResolveRequest(req.action(), req.reason(), null));
+                resolved++;
+            } catch (RuntimeException e) {
+                failed.add(id);
+            }
+        }
+        return new BulkResolveResponse(resolved, failed.size(), failed);
+    }
+
+    @PatchMapping("/api/v1/admin/reports/{id}/assign")
+    @PreAuthorize("hasAuthority('GRIEVANCES:EDIT')")
+    public ResponseEntity<Void> assign(@AuthenticationPrincipal AdminPrincipal principal,
+                                       @PathVariable Long id, @RequestBody AssignRequest req) {
+        service.assign(principal.id(), id, req.adminId());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/v1/admin/reports/bulk-assign")
+    @PreAuthorize("hasAuthority('GRIEVANCES:EDIT')")
+    public ResponseEntity<Void> bulkAssign(@AuthenticationPrincipal AdminPrincipal principal,
+                                           @Valid @RequestBody BulkAssignRequest req) {
+        service.bulkAssign(principal.id(), req.ids(), req.adminId());
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/v1/admin/moderation/history")

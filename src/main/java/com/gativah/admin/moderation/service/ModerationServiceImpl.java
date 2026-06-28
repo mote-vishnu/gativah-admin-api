@@ -1,6 +1,7 @@
 package com.gativah.admin.moderation.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
@@ -150,6 +151,31 @@ public class ModerationServiceImpl implements ModerationService {
         }
         audit.record(actorAdminId, "APPEAL_RESOLVE", "APPEAL", String.valueOf(appealId),
                 (req.grant() ? "GRANTED" : "DENIED") + " — " + req.note(), null, null);
+    }
+
+    @Override
+    @Transactional
+    public void assign(Long actorAdminId, Long reportId, Long assigneeAdminId) {
+        ContentReport report = reports.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found: " + reportId));
+        report.setAssigneeAdminId(assigneeAdminId);
+        reports.save(report);
+        audit.record(actorAdminId, "REPORT_ASSIGN", "REPORT", String.valueOf(reportId),
+                assigneeAdminId == null ? "unassigned" : "assigned to #" + assigneeAdminId, null, null);
+    }
+
+    @Override
+    @Transactional
+    public void bulkAssign(Long actorAdminId, List<Long> ids, Long assigneeAdminId) {
+        for (Long id : ids) {
+            reports.findById(id).ifPresent(r -> {
+                r.setAssigneeAdminId(assigneeAdminId);
+                reports.save(r);
+            });
+        }
+        audit.record(actorAdminId, "REPORT_BULK_ASSIGN", "REPORT", null,
+                ids.size() + " report(s) " + (assigneeAdminId == null ? "unassigned" : "assigned to #" + assigneeAdminId),
+                null, null);
     }
 
     private Long authorOrThrow(ContentReport report) {

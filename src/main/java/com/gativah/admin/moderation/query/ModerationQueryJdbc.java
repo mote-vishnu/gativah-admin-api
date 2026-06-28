@@ -61,7 +61,7 @@ public class ModerationQueryJdbc implements ModerationQuery {
         String sql = "select cr.id, cr.content_type, cr.content_id, cr.reason, cr.status, cr.created_at, "
                 + "cr.reporter_user_id, ru.username as reporter_username, "
                 + "coalesce(p.author_user_id, c.author_user_id) as author_user_id, au.username as author_username, "
-                + "left(coalesce(p.content, c.content), 160) as snippet "
+                + "left(coalesce(p.content, c.content), 160) as snippet, cr.assignee_admin_id "
                 + JOINS + FILTER
                 + " order by cr.created_at desc limit :limit offset :offset";
         params.addValue("limit", pageable.getPageSize());
@@ -78,7 +78,8 @@ public class ModerationQueryJdbc implements ModerationQuery {
                 rs.getString("reporter_username"),
                 (Long) rs.getObject("author_user_id"),
                 rs.getString("author_username"),
-                rs.getString("snippet")));
+                rs.getString("snippet"),
+                (Long) rs.getObject("assignee_admin_id")));
         return new PageImpl<>(rows, pageable, count);
     }
 
@@ -88,7 +89,7 @@ public class ModerationQueryJdbc implements ModerationQuery {
                 + "cr.reporter_user_id, ru.username as reporter_username, "
                 + "coalesce(p.author_user_id, c.author_user_id) as author_user_id, au.username as author_username, "
                 + "au.account_status as author_status, "
-                + "coalesce(p.content, c.content) as snippet, cr.reviewed_by, cr.reviewed_at "
+                + "coalesce(p.content, c.content) as snippet, cr.reviewed_by, cr.reviewed_at, cr.assignee_admin_id "
                 + JOINS + " where cr.id = :id";
         try {
             return jdbc.queryForObject(sql, new MapSqlParameterSource("id", reportId), (rs, i) -> new ReportDetail(
@@ -106,7 +107,8 @@ public class ModerationQueryJdbc implements ModerationQuery {
                     rs.getString("author_status"),
                     rs.getString("snippet"),
                     (Long) rs.getObject("reviewed_by"),
-                    rs.getTimestamp("reviewed_at") == null ? null : rs.getTimestamp("reviewed_at").toLocalDateTime()));
+                    rs.getTimestamp("reviewed_at") == null ? null : rs.getTimestamp("reviewed_at").toLocalDateTime(),
+                    (Long) rs.getObject("assignee_admin_id")));
         } catch (EmptyResultDataAccessException e) {
             return null;
         }

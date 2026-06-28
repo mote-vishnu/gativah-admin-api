@@ -48,6 +48,9 @@ public class ContentReport {
 
     private String status;
 
+    @Column(name = "assignee_admin_id")
+    private Long assigneeAdminId;
+
     @Column(name = "reviewed_by")
     private Long reviewedBy;
 

@@ -18,5 +18,6 @@ public record ReportDetail(
         String authorStatus,
         String snippet,
         Long reviewedBy,
-        LocalDateTime reviewedAt) {
+        LocalDateTime reviewedAt,
+        Long assigneeAdminId) {
 }

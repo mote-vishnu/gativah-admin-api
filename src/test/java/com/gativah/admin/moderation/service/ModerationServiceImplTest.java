@@ -135,6 +135,26 @@ class ModerationServiceImplTest {
     }
 
     @Test
+    void assign_sets_assignee_and_audits() {
+        ContentReport r = report();
+        when(reports.findById(77L)).thenReturn(Optional.of(r));
+
+        service.assign(5L, 77L, 12L);
+
+        assertThat(r.getAssigneeAdminId()).isEqualTo(12L);
+        verify(reports).save(r);
+        verify(audit).record(eq(5L), eq("REPORT_ASSIGN"), eq("REPORT"), eq("77"), any(), any(), any());
+    }
+
+    @Test
+    void assign_missing_report_is_404() {
+        when(reports.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.assign(5L, 404L, 1L))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
     void granting_an_appeal_reinstates_the_user() {
         Appeal a = new Appeal();
         a.setId(3L);

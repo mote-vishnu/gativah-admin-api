@@ -1,5 +1,7 @@
 package com.gativah.admin.moderation.service;
 
+import java.util.List;
+
 import com.gativah.admin.moderation.dto.AppealResolveRequest;
 import com.gativah.admin.moderation.dto.AppealRow;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
@@ -24,4 +26,8 @@ public interface ModerationService {
     Page<AppealRow> appeals(String status, Pageable pageable);
 
     void resolveAppeal(Long actorAdminId, Long appealId, AppealResolveRequest req);
+
+    void assign(Long actorAdminId, Long reportId, Long assigneeAdminId);
+
+    void bulkAssign(Long actorAdminId, List<Long> ids, Long assigneeAdminId);
 }
