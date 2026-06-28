@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Long> {
 
     Page<AdminAuditLog> findByAdminUserIdOrderByCreatedAtDesc(Long adminUserId, Pageable pageable);
+
+    Page<AdminAuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
 }

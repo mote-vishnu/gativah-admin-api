@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
+import java.util.Set;
 
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.auth.dto.AuthResponse;
@@ -46,11 +47,13 @@ class AdminAuthServiceTest {
     }
 
     private AdminUser user(boolean active, boolean mfa) {
+        AdminRole moderator = new AdminRole();
+        moderator.setName("MODERATOR");
         AdminUser u = new AdminUser();
         u.setId(7L);
         u.setEmail("dev@gativah.com");
         u.setName("Dev K.");
-        u.setRole(AdminRole.MODERATOR);
+        u.setRoles(Set.of(moderator));
         u.setStatus(active ? AdminUser.STATUS_ACTIVE : AdminUser.STATUS_DISABLED);
         u.setPasswordHash("hash");
         u.setMfaEnrolled(mfa);
@@ -71,7 +74,7 @@ class AdminAuthServiceTest {
 
         assertThat(res.mfaRequired()).isFalse();
         assertThat(res.token()).isEqualTo("tok");
-        assertThat(res.user().role()).isEqualTo("MODERATOR");
+        assertThat(res.user().roles()).containsExactly("MODERATOR");
         verify(audit).record(eq(7L), eq("LOGIN"), anyString());
     }
 

@@ -7,7 +7,6 @@ import java.util.List;
 
 import javax.crypto.SecretKey;
 
-import com.gativah.admin.auth.model.AdminRole;
 import com.gativah.admin.auth.model.AdminUser;
 
 import io.jsonwebtoken.Claims;
@@ -50,7 +49,7 @@ public class AdminJwtService {
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
                 .claim("name", user.getName())
-                .claim("role", user.getRole().name())
+                .claim("roles", user.roleNames())
                 .claim("authorities", authorities)
                 .audience().add(audience).and()
                 .issuedAt(now)
@@ -70,10 +69,12 @@ public class AdminJwtService {
             throw new IllegalArgumentException("Wrong token audience");
         }
         Long uid = c.get("uid", Number.class).longValue();
-        AdminRole role = AdminRole.valueOf(c.get("role", String.class));
+        @SuppressWarnings("unchecked")
+        List<String> roles = c.get("roles", List.class);
         @SuppressWarnings("unchecked")
         List<String> authorities = c.get("authorities", List.class);
-        AdminPrincipal principal = new AdminPrincipal(uid, c.getSubject(), c.get("name", String.class), role);
+        AdminPrincipal principal = new AdminPrincipal(uid, c.getSubject(), c.get("name", String.class),
+                roles == null ? List.of() : roles);
         return new Parsed(principal, authorities);
     }
 

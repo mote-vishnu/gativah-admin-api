@@ -1,7 +1,10 @@
 package com.gativah.admin.config;
 
+import java.util.Set;
+
 import com.gativah.admin.auth.model.AdminRole;
 import com.gativah.admin.auth.model.AdminUser;
+import com.gativah.admin.auth.repo.AdminRoleRepository;
 import com.gativah.admin.auth.repo.AdminUserRepository;
 
 import org.slf4j.Logger;
@@ -23,14 +26,17 @@ public class DevAdminSeeder implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(DevAdminSeeder.class);
 
     private final AdminUserRepository repo;
+    private final AdminRoleRepository roleRepo;
     private final PasswordEncoder passwordEncoder;
     private final String seedEmail;
     private final String seedPassword;
 
-    public DevAdminSeeder(AdminUserRepository repo, PasswordEncoder passwordEncoder,
+    public DevAdminSeeder(AdminUserRepository repo, AdminRoleRepository roleRepo,
+                          PasswordEncoder passwordEncoder,
                           @Value("${admin.seed.email:admin@gativah.com}") String seedEmail,
                           @Value("${admin.seed.password:ChangeMe!123}") String seedPassword) {
         this.repo = repo;
+        this.roleRepo = roleRepo;
         this.passwordEncoder = passwordEncoder;
         this.seedEmail = seedEmail;
         this.seedPassword = seedPassword;
@@ -41,10 +47,13 @@ public class DevAdminSeeder implements CommandLineRunner {
         if (repo.count() > 0) {
             return;
         }
+        AdminRole superAdmin = roleRepo.findByName("SUPER_ADMIN")
+                .orElseThrow(() -> new IllegalStateException(
+                        "SUPER_ADMIN role missing — run the V89 migration before seeding."));
         AdminUser u = new AdminUser();
         u.setEmail(seedEmail);
         u.setName("Root Admin");
-        u.setRole(AdminRole.SUPER_ADMIN);
+        u.setRoles(Set.of(superAdmin));
         u.setStatus(AdminUser.STATUS_ACTIVE);
         u.setPasswordHash(passwordEncoder.encode(seedPassword));
         u.setMfaEnrolled(false);

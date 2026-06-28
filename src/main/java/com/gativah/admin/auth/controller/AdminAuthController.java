@@ -42,7 +42,7 @@ public class AdminAuthController {
     @GetMapping("/me")
     public AdminMeResponse me(@AuthenticationPrincipal AdminPrincipal principal, Authentication auth) {
         return new AdminMeResponse(
-                principal.id(), principal.email(), principal.name(), principal.role().name(),
+                principal.id(), principal.email(), principal.name(), principal.roles(),
                 auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList());
     }
 }

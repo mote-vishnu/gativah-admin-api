@@ -1,7 +1,10 @@
 package com.gativah.admin.auth.security;
 
 import java.io.ByteArrayOutputStream;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Instant;
 
 import javax.crypto.Mac;
@@ -20,6 +23,22 @@ public class TotpService {
     private static final int DIGITS = 6;
     private static final int WINDOW = 1;
     private static final String B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    /** A fresh base32 TOTP secret (160 bits) for a new enrollment. */
+    public String generateSecret() {
+        byte[] bytes = new byte[20];
+        RANDOM.nextBytes(bytes);
+        return base32Encode(bytes);
+    }
+
+    /** otpauth:// URI an authenticator app can import (QR or manual). */
+    public String provisioningUri(String secret, String account, String issuer) {
+        String label = URLEncoder.encode(issuer + ":" + account, StandardCharsets.UTF_8);
+        String iss = URLEncoder.encode(issuer, StandardCharsets.UTF_8);
+        return "otpauth://totp/" + label + "?secret=" + secret + "&issuer=" + iss
+                + "&algorithm=SHA1&digits=" + DIGITS + "&period=" + STEP_SECONDS;
+    }
 
     public boolean verify(String base32Secret, String code) {
         return verifyAt(base32Secret, code, Instant.now().getEpochSecond());
@@ -60,6 +79,24 @@ public class TotpService {
         } catch (Exception e) {
             throw new IllegalStateException("TOTP computation failed", e);
         }
+    }
+
+    private String base32Encode(byte[] data) {
+        StringBuilder sb = new StringBuilder();
+        int buffer = 0;
+        int bits = 0;
+        for (byte b : data) {
+            buffer = (buffer << 8) | (b & 0xff);
+            bits += 8;
+            while (bits >= 5) {
+                sb.append(B32.charAt((buffer >>> (bits - 5)) & 0x1f));
+                bits -= 5;
+            }
+        }
+        if (bits > 0) {
+            sb.append(B32.charAt((buffer << (5 - bits)) & 0x1f));
+        }
+        return sb.toString();
     }
 
     private byte[] base32Decode(String s) {

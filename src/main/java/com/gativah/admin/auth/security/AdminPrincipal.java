@@ -1,7 +1,11 @@
 package com.gativah.admin.auth.security;
 
-import com.gativah.admin.auth.model.AdminRole;
+import java.util.List;
 
-/** Authenticated staff identity placed in the SecurityContext by the JWT filter. */
-public record AdminPrincipal(Long id, String email, String name, AdminRole role) {
+/**
+ * Authenticated staff identity placed in the SecurityContext by the JWT filter.
+ * Effective permissions live in the Authentication authorities; {@code roles}
+ * are the assigned role names (for display).
+ */
+public record AdminPrincipal(Long id, String email, String name, List<String> roles) {
 }

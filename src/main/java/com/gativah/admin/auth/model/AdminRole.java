@@ -1,53 +1,70 @@
 package com.gativah.admin.auth.model;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.List;
+import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.Set;
 
-/**
- * Staff roles and their capability matrix (Phase 1 = code-defined, table-driven
- * RBAC deferred to P2). Authorities exposed to Spring Security are
- * {@code ROLE_<name>} plus each {@link AdminPermission} name.
- */
-public enum AdminRole {
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 
-    SUPER_ADMIN(EnumSet.allOf(AdminPermission.class)),
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-    MODERATOR(EnumSet.of(
-            AdminPermission.MODERATION_REVIEW,
-            AdminPermission.MODERATION_ACTION,
-            AdminPermission.APPEAL_HANDLE)),
+/** A permission group (admin_role, V89): a named set of permissions, assigned to users. */
+@Entity
+@Table(name = "admin_role")
+@Getter
+@Setter
+@NoArgsConstructor
+public class AdminRole {
 
-    FINANCE_ANALYST(EnumSet.of(
-            AdminPermission.FINANCE_VIEW,
-            AdminPermission.ENTITLEMENT_GRANT)),
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    SUPPORT(EnumSet.of(
-            AdminPermission.MODERATION_REVIEW,
-            AdminPermission.FINANCE_VIEW));
+    @Column(nullable = false, unique = true)
+    private String name;
 
-    private final Set<AdminPermission> permissions;
+    private String description;
 
-    AdminRole(Set<AdminPermission> permissions) {
-        this.permissions = permissions;
-    }
+    @Column(name = "is_system", nullable = false)
+    private boolean system;
 
-    public Set<AdminPermission> permissions() {
-        return permissions;
-    }
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "admin_role_permission",
+            joinColumns = @JoinColumn(name = "role_id"),
+            inverseJoinColumns = @JoinColumn(name = "permission_id"))
+    private Set<AdminPermission> permissions = new HashSet<>();
 
-    public boolean has(AdminPermission permission) {
-        return permissions.contains(permission);
-    }
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
-    /** Spring authorities: the role (ROLE_*) plus every granted permission. */
-    public List<String> authorities() {
-        List<String> out = new ArrayList<>();
-        out.add("ROLE_" + name());
-        for (AdminPermission p : permissions) {
-            out.add(p.name());
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
         }
-        return out;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

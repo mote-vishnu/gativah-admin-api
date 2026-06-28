@@ -7,7 +7,10 @@ import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.auth.dto.AdminMeResponse;
 import com.gativah.admin.auth.dto.AuthResponse;
 import com.gativah.admin.auth.dto.LoginRequest;
+import com.gativah.admin.auth.dto.MfaEnableRequest;
 import com.gativah.admin.auth.dto.MfaRequest;
+import com.gativah.admin.auth.dto.MfaStartResponse;
+import com.gativah.admin.auth.dto.MfaStatusResponse;
 import com.gativah.admin.auth.model.AdminUser;
 import com.gativah.admin.auth.repo.AdminUserRepository;
 import com.gativah.admin.auth.security.AdminJwtService;
@@ -63,6 +66,41 @@ public class AdminAuthService {
         return issue(user);
     }
 
+    // ── MFA enrollment (authenticated operator) ───────────────
+    @Transactional(readOnly = true)
+    public MfaStatusResponse mfaStatus(Long adminId) {
+        return new MfaStatusResponse(requireAdmin(adminId).isMfaEnrolled());
+    }
+
+    /** Generate + persist a fresh secret (enrollment stays pending until confirmed). */
+    @Transactional
+    public MfaStartResponse startMfa(Long adminId) {
+        AdminUser u = requireAdmin(adminId);
+        String secret = totpService.generateSecret();
+        u.setMfaSecret(secret);
+        repo.save(u);
+        return new MfaStartResponse(secret, totpService.provisioningUri(secret, u.getEmail(), "Gativah Admin"),
+                u.isMfaEnrolled());
+    }
+
+    /** Confirm a code against the pending secret and switch MFA on. */
+    @Transactional
+    public MfaStatusResponse enableMfa(Long adminId, MfaEnableRequest req) {
+        AdminUser u = requireAdmin(adminId);
+        if (u.getMfaSecret() == null || !totpService.verify(u.getMfaSecret(), req.code())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid code");
+        }
+        u.setMfaEnrolled(true);
+        repo.save(u);
+        auditService.record(adminId, "MFA_ENABLE", "Enabled TOTP MFA");
+        return new MfaStatusResponse(true);
+    }
+
+    private AdminUser requireAdmin(Long adminId) {
+        return repo.findById(adminId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found"));
+    }
+
     private AdminUser authenticate(String email, String password) {
         AdminUser user = repo.findByEmailIgnoreCase(email).orElseThrow(this::unauthorized);
         if (!user.isActive() || !passwordEncoder.matches(password, user.getPasswordHash())) {
@@ -74,11 +112,11 @@ public class AdminAuthService {
     private AuthResponse issue(AdminUser user) {
         user.setLastLoginAt(LocalDateTime.now());
         repo.save(user);
-        List<String> authorities = user.getRole().authorities();
+        List<String> authorities = user.permissionCodes();
         String token = jwtService.generate(user, authorities);
         auditService.record(user.getId(), "LOGIN", "Signed in");
         AdminMeResponse me = new AdminMeResponse(
-                user.getId(), user.getEmail(), user.getName(), user.getRole().name(), authorities);
+                user.getId(), user.getEmail(), user.getName(), user.roleNames(), authorities);
         return AuthResponse.issued(token, jwtService.expirationMs(), me);
     }
 

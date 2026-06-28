@@ -1,8 +1,11 @@
 package com.gativah.admin.audit.service;
 
+import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.audit.model.AdminAuditLog;
 import com.gativah.admin.audit.repo.AdminAuditLogRepository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,5 +39,15 @@ public class AuditService {
     @Transactional
     public void record(Long adminUserId, String action, String summary) {
         record(adminUserId, action, null, null, summary, null, null);
+    }
+
+    /** Paged audit feed; pass a non-null adminUserId to scope to one operator. */
+    @Transactional(readOnly = true)
+    public Page<AuditEntryRow> list(Long adminUserId, Pageable pageable) {
+        Page<AdminAuditLog> page = adminUserId == null
+                ? repo.findAllByOrderByCreatedAtDesc(pageable)
+                : repo.findByAdminUserIdOrderByCreatedAtDesc(adminUserId, pageable);
+        return page.map(a -> new AuditEntryRow(a.getId(), a.getAdminUserId(), a.getAction(),
+                a.getTargetType(), a.getTargetId(), a.getSummary(), a.getIp(), a.getCreatedAt()));
     }
 }

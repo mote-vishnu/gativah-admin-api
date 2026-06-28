@@ -52,6 +52,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/admin/auth/**").permitAll()
                         .requestMatchers("/api/v1/ping").permitAll()
+                        // Let server errors surface as their real status on the
+                        // internal /error dispatch instead of being re-secured to 401.
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
