@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.content.dto.ContentRow;
+import com.gativah.admin.content.dto.StoryRow;
 import com.gativah.admin.content.dto.TakedownContentRequest;
 import com.gativah.admin.content.service.ContentService;
 
@@ -37,6 +38,13 @@ public class AdminContentController {
                                     @RequestParam(required = false) List<String> status,
                                     @PageableDefault(size = 20) Pageable pageable) {
         return service.list(type, q, status, pageable);
+    }
+
+    @GetMapping("/api/v1/admin/content/stories")
+    @PreAuthorize("hasAuthority('CONTENT:VIEW')")
+    public Page<StoryRow> stories(@RequestParam(required = false) String q,
+                                  @PageableDefault(size = 20) Pageable pageable) {
+        return service.stories(q, pageable);
     }
 
     @PostMapping("/api/v1/admin/content/{type}/{id}/takedown")

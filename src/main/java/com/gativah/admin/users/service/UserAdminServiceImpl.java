@@ -3,11 +3,13 @@ package com.gativah.admin.users.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.users.dto.BanRequest;
 import com.gativah.admin.users.dto.SuspendRequest;
 import com.gativah.admin.users.dto.UserDetail;
+import com.gativah.admin.users.dto.UserInsights;
 import com.gativah.admin.users.dto.UserSummary;
 import com.gativah.admin.users.query.UsersQuery;
 
@@ -51,6 +53,12 @@ public class UserAdminServiceImpl implements UserAdminService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<AuditEntryRow> audit(Long userId, Pageable pageable) {
+        return audit.list(null, null, "USER", String.valueOf(userId), null, null, null, pageable);
+    }
+
+    @Override
     public UserDetail suspend(Long actorAdminId, Long userId, SuspendRequest req) {
         requireUser(userId);
         int days = req.days() != null && req.days() > 0 ? req.days() : DEFAULT_SUSPEND_DAYS;
@@ -74,6 +82,39 @@ public class UserAdminServiceImpl implements UserAdminService {
         internal.reinstateUser(actorAdminId, userId);
         audit.record(actorAdminId, "USER_REINSTATE", "USER", String.valueOf(userId), "reinstated", null, null);
         return detail(userId);
+    }
+
+    @Override
+    public UserDetail setVerified(Long actorAdminId, Long userId, boolean grant) {
+        requireUser(userId);
+        internal.setVerified(actorAdminId, userId, grant);
+        audit.record(actorAdminId, grant ? "USER_VERIFY" : "USER_UNVERIFY", "USER", String.valueOf(userId),
+                grant ? "verified badge granted" : "verified badge revoked", null, null);
+        return detail(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserInsights insights(Long userId) {
+        String status = query.accountStatus(userId);
+        if (status == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId);
+        }
+        long reports = query.reportsAgainst(userId);
+        long sanctions = query.sanctionCount(userId);
+        int score = riskScore(reports, sanctions, status);
+        String level = score >= 60 ? "HIGH" : score >= 25 ? "MEDIUM" : "LOW";
+        return new UserInsights(reports, sanctions, score, level, query.devices(userId), query.activity(userId, 90));
+    }
+
+    private int riskScore(long reports, long sanctions, String status) {
+        long base = reports * 8 + sanctions * 15;
+        if ("BANNED".equals(status)) {
+            base += 40;
+        } else if ("SUSPENDED".equals(status)) {
+            base += 20;
+        }
+        return (int) Math.min(100, base);
     }
 
     private void requireUser(Long userId) {

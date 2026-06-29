@@ -2,10 +2,13 @@ package com.gativah.admin.users.controller;
 
 import java.util.List;
 
+import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.users.dto.BanRequest;
+import com.gativah.admin.users.dto.SetVerifiedRequest;
 import com.gativah.admin.users.dto.SuspendRequest;
 import com.gativah.admin.users.dto.UserDetail;
+import com.gativah.admin.users.dto.UserInsights;
 import com.gativah.admin.users.dto.UserSummary;
 import com.gativah.admin.users.service.UserAdminService;
 
@@ -63,5 +66,24 @@ public class AdminUsersController {
     @PreAuthorize("hasAuthority('USERS:EDIT')")
     public UserDetail reinstate(@AuthenticationPrincipal AdminPrincipal principal, @PathVariable Long id) {
         return service.reinstate(principal.id(), id);
+    }
+
+    @PostMapping("/api/v1/admin/users/{id}/verified")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
+    public UserDetail setVerified(@AuthenticationPrincipal AdminPrincipal principal,
+                                  @PathVariable Long id, @RequestBody SetVerifiedRequest req) {
+        return service.setVerified(principal.id(), id, req.grant());
+    }
+
+    @GetMapping("/api/v1/admin/users/{id}/insights")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
+    public UserInsights insights(@PathVariable Long id) {
+        return service.insights(id);
+    }
+
+    @GetMapping("/api/v1/admin/users/{id}/audit")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
+    public Page<AuditEntryRow> audit(@PathVariable Long id, @PageableDefault(size = 25) Pageable pageable) {
+        return service.audit(id, pageable);
     }
 }

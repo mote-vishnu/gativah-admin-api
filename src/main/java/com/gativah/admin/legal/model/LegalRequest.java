@@ -29,6 +29,10 @@ public class LegalRequest {
     public static final String STATUS_REJECTED = "REJECTED";
     public static final String STATUS_CLOSED = "CLOSED";
 
+    public static final String APPROVAL_PENDING = "PENDING";
+    public static final String APPROVAL_APPROVED = "APPROVED";
+    public static final String APPROVAL_REJECTED = "REJECTED";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -60,6 +64,18 @@ public class LegalRequest {
 
     @Column(length = 2000)
     private String notes;
+
+    @Column(name = "approval_status", nullable = false)
+    private String approvalStatus = APPROVAL_PENDING;
+
+    @Column(name = "approved_by")
+    private Long approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "approval_note", length = 1000)
+    private String approvalNote;
 
     @Column(name = "created_by", nullable = false)
     private Long createdBy;

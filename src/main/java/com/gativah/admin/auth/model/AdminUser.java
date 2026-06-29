@@ -62,6 +62,10 @@ public class AdminUser {
     @Column(name = "mfa_enrolled", nullable = false)
     private boolean mfaEnrolled;
 
+    /** Bumped to invalidate all of this operator's live JWTs (forced logout). */
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
+
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
 

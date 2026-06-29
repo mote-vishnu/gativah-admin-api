@@ -2,7 +2,10 @@ package com.gativah.admin.legal.service;
 
 import java.util.List;
 
+import com.gativah.admin.legal.dto.AddCorrespondenceRequest;
+import com.gativah.admin.legal.dto.ApprovalRequest;
 import com.gativah.admin.legal.dto.CreateLegalRequest;
+import com.gativah.admin.legal.dto.CreateTaskRequest;
 import com.gativah.admin.legal.dto.DisclosureRow;
 import com.gativah.admin.legal.dto.LegalRequestDetail;
 import com.gativah.admin.legal.dto.LegalRequestSummary;
@@ -22,5 +25,13 @@ public interface LegalService {
 
     LegalRequestSummary update(Long actorAdminId, Long id, UpdateLegalRequest req);
 
+    void approve(Long actorAdminId, Long id, ApprovalRequest req);
+
     DisclosureRow recordDisclosure(Long actorAdminId, Long requestId, RecordDisclosureRequest req);
+
+    void addTask(Long actorAdminId, Long requestId, CreateTaskRequest req);
+
+    void completeTask(Long actorAdminId, Long taskId);
+
+    void addCorrespondence(Long actorAdminId, Long requestId, AddCorrespondenceRequest req);
 }

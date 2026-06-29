@@ -6,6 +6,7 @@ import java.util.Set;
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.content.dto.ContentRow;
+import com.gativah.admin.content.dto.StoryRow;
 import com.gativah.admin.content.query.ContentQuery;
 
 import org.springframework.data.domain.Page;
@@ -35,6 +36,13 @@ public class ContentServiceImpl implements ContentService {
     public Page<ContentRow> list(List<String> types, String q, List<String> statuses, Pageable pageable) {
         String like = (q == null || q.isBlank()) ? null : "%" + q.trim() + "%";
         return query.search(normalizeTypes(types), like, removedFlags(statuses), pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<StoryRow> stories(String q, Pageable pageable) {
+        String like = (q == null || q.isBlank()) ? null : "%" + q.trim() + "%";
+        return query.stories(like, pageable);
     }
 
     @Override

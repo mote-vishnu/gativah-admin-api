@@ -3,6 +3,7 @@ package com.gativah.admin.content.query;
 import java.util.List;
 
 import com.gativah.admin.content.dto.ContentRow;
+import com.gativah.admin.content.dto.StoryRow;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -73,6 +74,42 @@ public class ContentQueryJdbc implements ContentQuery {
                 rs.getString("author_username"),
                 rs.getString("snippet"),
                 rs.getTimestamp("created_at") == null ? null : rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getBoolean("removed")));
+        return new PageImpl<>(rows, pageable, count);
+    }
+
+    @Override
+    public Page<StoryRow> stories(String q, Pageable pageable) {
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("q", q);
+        String filter = "where (cast(:q as varchar) is null or s.content ilike :q or au.username ilike :q)";
+
+        Long total = jdbc.queryForObject(
+                "select count(*) from story s left join user_account au on au.id = s.author_user_id " + filter,
+                params, Long.class);
+        long count = total == null ? 0 : total;
+        if (count == 0) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        String sql = "select s.id, s.author_user_id, au.username, s.kind, left(s.content, 160) as snippet, "
+                + "s.created_at, s.expires_at, (s.deleted_at is not null) as removed, "
+                + "(select count(*) from story_view v where v.story_id = s.id) as views, "
+                + "(select count(*) from story_reaction r where r.story_id = s.id) as reactions "
+                + "from story s left join user_account au on au.id = s.author_user_id " + filter
+                + " order by s.created_at desc limit :limit offset :offset";
+        params.addValue("limit", pageable.getPageSize());
+        params.addValue("offset", pageable.getOffset());
+
+        List<StoryRow> rows = jdbc.query(sql, params, (rs, i) -> new StoryRow(
+                rs.getLong("id"),
+                (Long) rs.getObject("author_user_id"),
+                rs.getString("username"),
+                rs.getString("kind"),
+                rs.getString("snippet"),
+                rs.getTimestamp("created_at") == null ? null : rs.getTimestamp("created_at").toLocalDateTime(),
+                rs.getTimestamp("expires_at") == null ? null : rs.getTimestamp("expires_at").toLocalDateTime(),
+                rs.getLong("views"),
+                rs.getLong("reactions"),
                 rs.getBoolean("removed")));
         return new PageImpl<>(rows, pageable, count);
     }

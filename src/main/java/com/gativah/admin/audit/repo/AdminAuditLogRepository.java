@@ -1,14 +1,40 @@
 package com.gativah.admin.audit.repo;
 
+import java.time.LocalDateTime;
+
 import com.gativah.admin.audit.model.AdminAuditLog;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Long> {
 
-    Page<AdminAuditLog> findByAdminUserIdOrderByCreatedAtDesc(Long adminUserId, Pageable pageable);
-
-    Page<AdminAuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    /**
+     * Filtered audit feed — every filter is nullable (skipped when null). Pass a
+     * non-null actorId to scope to one operator (also used to force self-scope for
+     * operators without AUDIT:VIEW). {@code action} is a prefix match (e.g. "USER_").
+     */
+    @Query("""
+            select a from AdminAuditLog a
+            where (:actorId is null or a.adminUserId = :actorId)
+              and (:action is null or a.action like concat(:action, '%'))
+              and (:targetType is null or a.targetType = :targetType)
+              and (:targetId is null or a.targetId = :targetId)
+              and (:from is null or a.createdAt >= :from)
+              and (:to is null or a.createdAt < :to)
+              and (:q is null or lower(a.summary) like lower(concat('%', :q, '%'))
+                   or lower(a.action) like lower(concat('%', :q, '%')))
+            order by a.createdAt desc
+            """)
+    Page<AdminAuditLog> search(@Param("actorId") Long actorId,
+                               @Param("action") String action,
+                               @Param("targetType") String targetType,
+                               @Param("targetId") String targetId,
+                               @Param("from") LocalDateTime from,
+                               @Param("to") LocalDateTime to,
+                               @Param("q") String q,
+                               Pageable pageable);
 }

@@ -14,8 +14,15 @@ public record LegalRequestDetail(
         LocalDateTime receivedAt,
         LocalDateTime dueAt,
         String notes,
+        String approvalStatus,
+        Long approvedBy,
+        LocalDateTime approvedAt,
+        String approvalNote,
         Long createdBy,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        List<DisclosureRow> disclosures) {
+        List<DisclosureRow> disclosures,
+        List<TaskRow> tasks,
+        List<CorrespondenceRow> correspondence,
+        List<CustodyEventRow> custody) {
 }

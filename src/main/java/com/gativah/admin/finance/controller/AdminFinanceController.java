@@ -43,7 +43,8 @@ public class AdminFinanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return service.revenue(granularity,
                 from == null ? null : from.atStartOfDay(),
-                to == null ? null : to.atStartOfDay(),
+                // inclusive end: cover the whole `to` day (range is half-open `< end`)
+                to == null ? null : to.plusDays(1).atStartOfDay(),
                 groupBy);
     }
 

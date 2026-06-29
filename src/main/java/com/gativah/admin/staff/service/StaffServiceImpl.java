@@ -9,6 +9,7 @@ import com.gativah.admin.auth.model.AdminRole;
 import com.gativah.admin.auth.model.AdminUser;
 import com.gativah.admin.auth.repo.AdminRoleRepository;
 import com.gativah.admin.auth.repo.AdminUserRepository;
+import com.gativah.admin.staff.dto.AdminLite;
 import com.gativah.admin.staff.dto.InviteStaffRequest;
 import com.gativah.admin.staff.dto.StaffRow;
 import com.gativah.admin.staff.dto.UpdateStaffRequest;
@@ -44,6 +45,12 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<AdminLite> directory() {
+        return repo.findAll().stream().map(u -> new AdminLite(u.getId(), u.getName())).toList();
+    }
+
+    @Override
     @Transactional
     public StaffRow invite(Long actorAdminId, InviteStaffRequest req) {
         if (repo.existsByEmailIgnoreCase(req.email())) {
@@ -69,6 +76,10 @@ public class StaffServiceImpl implements StaffService {
         AdminUser u = repo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Admin not found: " + id));
         if (req.status() != null) {
+            // Disabling (or any status change away from ACTIVE) forces logout of live tokens.
+            if (!req.status().equals(u.getStatus()) && !AdminUser.STATUS_ACTIVE.equals(req.status())) {
+                u.setTokenVersion(u.getTokenVersion() + 1);
+            }
             u.setStatus(req.status());
         }
         u = repo.save(u);

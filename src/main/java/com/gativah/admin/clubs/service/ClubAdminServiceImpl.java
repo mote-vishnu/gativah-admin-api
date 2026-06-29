@@ -2,6 +2,8 @@ package com.gativah.admin.clubs.service;
 
 import java.util.List;
 
+import com.gativah.admin.audit.service.AuditService;
+import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.clubs.dto.ClubDetail;
 import com.gativah.admin.clubs.dto.ClubSummary;
 import com.gativah.admin.clubs.query.ClubQuery;
@@ -17,10 +19,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class ClubAdminServiceImpl implements ClubAdminService {
 
-    private final ClubQuery query;
+    private static final String TARGET_CLUB = "CLUB";
 
-    public ClubAdminServiceImpl(ClubQuery query) {
+    private final ClubQuery query;
+    private final PacegritInternalClient internal;
+    private final AuditService audit;
+
+    public ClubAdminServiceImpl(ClubQuery query, PacegritInternalClient internal, AuditService audit) {
         this.query = query;
+        this.internal = internal;
+        this.audit = audit;
     }
 
     @Override
@@ -36,6 +44,40 @@ public class ClubAdminServiceImpl implements ClubAdminService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Club not found: " + id);
         }
         return detail;
+    }
+
+    @Override
+    @Transactional
+    public ClubDetail removeClub(Long actorAdminId, Long id, String reason) {
+        internal.removeClub(actorAdminId, id, reason);
+        audit.record(actorAdminId, "CLUB_REMOVE", TARGET_CLUB, String.valueOf(id), reason, null, null);
+        return detail(id);
+    }
+
+    @Override
+    @Transactional
+    public ClubDetail restoreClub(Long actorAdminId, Long id) {
+        internal.restoreClub(actorAdminId, id);
+        audit.record(actorAdminId, "CLUB_RESTORE", TARGET_CLUB, String.valueOf(id), null, null, null);
+        return detail(id);
+    }
+
+    @Override
+    @Transactional
+    public ClubDetail removeMember(Long actorAdminId, Long id, Long userId) {
+        internal.removeClubMember(actorAdminId, id, userId);
+        audit.record(actorAdminId, "CLUB_REMOVE_MEMBER", TARGET_CLUB, String.valueOf(id),
+                "removed user #" + userId, null, null);
+        return detail(id);
+    }
+
+    @Override
+    @Transactional
+    public ClubDetail removeEvent(Long actorAdminId, Long id, Long eventId, String reason) {
+        internal.removeClubEvent(actorAdminId, id, eventId, reason);
+        audit.record(actorAdminId, "CLUB_REMOVE_EVENT", TARGET_CLUB, String.valueOf(id),
+                "removed event #" + eventId + (reason == null ? "" : " — " + reason), null, null);
+        return detail(id);
     }
 
     /** Upper-cased, de-duped visibilities — or null when none apply. */

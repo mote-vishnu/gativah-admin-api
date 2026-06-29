@@ -104,6 +104,20 @@ class StaffServiceImplTest {
     }
 
     @Test
+    void disabling_bumps_token_version_for_forced_logout() {
+        AdminUser u = new AdminUser();
+        u.setId(5L);
+        u.setStatus(AdminUser.STATUS_ACTIVE);
+        u.setTokenVersion(3);
+        when(repo.findById(5L)).thenReturn(Optional.of(u));
+        when(repo.save(any(AdminUser.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.update(1L, 5L, new UpdateStaffRequest(AdminUser.STATUS_DISABLED));
+
+        assertThat(u.getTokenVersion()).isEqualTo(4);
+    }
+
+    @Test
     void set_roles_replaces_the_assigned_roles() {
         AdminUser u = new AdminUser();
         u.setId(5L);

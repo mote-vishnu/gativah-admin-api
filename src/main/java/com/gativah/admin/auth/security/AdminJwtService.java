@@ -51,6 +51,7 @@ public class AdminJwtService {
                 .claim("name", user.getName())
                 .claim("roles", user.roleNames())
                 .claim("authorities", authorities)
+                .claim("tv", user.getTokenVersion())
                 .audience().add(audience).and()
                 .issuedAt(now)
                 .expiration(exp)
@@ -58,8 +59,8 @@ public class AdminJwtService {
                 .compact();
     }
 
-    /** Parsed staff token: principal + Spring authorities. */
-    public record Parsed(AdminPrincipal principal, List<String> authorities) {
+    /** Parsed staff token: principal + Spring authorities + token version. */
+    public record Parsed(AdminPrincipal principal, List<String> authorities, int tokenVersion) {
     }
 
     public Parsed parse(String token) {
@@ -73,9 +74,10 @@ public class AdminJwtService {
         List<String> roles = c.get("roles", List.class);
         @SuppressWarnings("unchecked")
         List<String> authorities = c.get("authorities", List.class);
+        Number tv = c.get("tv", Number.class);
         AdminPrincipal principal = new AdminPrincipal(uid, c.getSubject(), c.get("name", String.class),
                 roles == null ? List.of() : roles);
-        return new Parsed(principal, authorities);
+        return new Parsed(principal, authorities, tv == null ? 0 : tv.intValue());
     }
 
     /** Dev secret is base64; fall back to raw UTF-8 bytes if it isn't. */

@@ -12,14 +12,18 @@ import static org.mockito.Mockito.when;
 import java.util.Optional;
 
 import com.gativah.admin.audit.service.AuditService;
+import com.gativah.admin.legal.dto.ApprovalRequest;
 import com.gativah.admin.legal.dto.CreateLegalRequest;
 import com.gativah.admin.legal.dto.DisclosureRow;
 import com.gativah.admin.legal.dto.RecordDisclosureRequest;
 import com.gativah.admin.legal.dto.UpdateLegalRequest;
 import com.gativah.admin.legal.model.LegalDisclosure;
 import com.gativah.admin.legal.model.LegalRequest;
+import com.gativah.admin.legal.repo.LegalCorrespondenceRepository;
+import com.gativah.admin.legal.repo.LegalCustodyEventRepository;
 import com.gativah.admin.legal.repo.LegalDisclosureRepository;
 import com.gativah.admin.legal.repo.LegalRequestRepository;
+import com.gativah.admin.legal.repo.LegalTaskRepository;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,13 +37,16 @@ class LegalServiceImplTest {
 
     @Mock LegalRequestRepository requests;
     @Mock LegalDisclosureRepository disclosures;
+    @Mock LegalTaskRepository tasks;
+    @Mock LegalCorrespondenceRepository correspondence;
+    @Mock LegalCustodyEventRepository custody;
     @Mock AuditService audit;
 
     LegalServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new LegalServiceImpl(requests, disclosures, audit);
+        service = new LegalServiceImpl(requests, disclosures, tasks, correspondence, custody, audit);
     }
 
     private LegalRequest request(Long id, String status) {
@@ -79,8 +86,9 @@ class LegalServiceImplTest {
     }
 
     @Test
-    void record_disclosure_actions_an_open_request_and_audits() {
+    void record_disclosure_actions_an_approved_request_and_audits() {
         LegalRequest r = request(7L, LegalRequest.STATUS_RECEIVED);
+        r.setApprovalStatus(LegalRequest.APPROVAL_APPROVED);
         when(requests.findById(7L)).thenReturn(Optional.of(r));
         when(disclosures.save(any(LegalDisclosure.class))).thenAnswer(inv -> {
             LegalDisclosure d = inv.getArgument(0);
@@ -94,6 +102,27 @@ class LegalServiceImplTest {
         assertThat(row.id()).isEqualTo(3L);
         assertThat(r.getStatus()).isEqualTo(LegalRequest.STATUS_ACTIONED);
         verify(audit).record(any(), eq("LEGAL_DISCLOSURE"), anyString(), anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    void record_disclosure_blocked_until_approved() {
+        when(requests.findById(9L)).thenReturn(Optional.of(request(9L, LegalRequest.STATUS_RECEIVED)));
+        assertThatThrownBy(() -> service.recordDisclosure(2L, 9L,
+                new RecordDisclosureRequest("Agency", "account", "n/a")))
+                .isInstanceOf(ResponseStatusException.class);
+        verify(disclosures, never()).save(any());
+    }
+
+    @Test
+    void approve_sets_status_and_logs_custody() {
+        LegalRequest r = request(11L, LegalRequest.STATUS_RECEIVED);
+        when(requests.findById(11L)).thenReturn(Optional.of(r));
+
+        service.approve(1L, 11L, new ApprovalRequest(true, "sufficient"));
+
+        assertThat(r.getApprovalStatus()).isEqualTo(LegalRequest.APPROVAL_APPROVED);
+        assertThat(r.getApprovedBy()).isEqualTo(1L);
+        verify(audit).record(eq(1L), eq("LEGAL_APPROVAL"), anyString(), anyString(), anyString(), any(), any());
     }
 
     @Test

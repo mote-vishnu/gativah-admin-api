@@ -5,7 +5,10 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import com.gativah.admin.auth.security.AdminPrincipal;
+import com.gativah.admin.legal.dto.AddCorrespondenceRequest;
+import com.gativah.admin.legal.dto.ApprovalRequest;
 import com.gativah.admin.legal.dto.CreateLegalRequest;
+import com.gativah.admin.legal.dto.CreateTaskRequest;
 import com.gativah.admin.legal.dto.DisclosureRow;
 import com.gativah.admin.legal.dto.LegalRequestDetail;
 import com.gativah.admin.legal.dto.LegalRequestSummary;
@@ -16,6 +19,7 @@ import com.gativah.admin.legal.service.LegalService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -63,10 +67,42 @@ public class AdminLegalController {
         return service.update(principal.id(), id, req);
     }
 
+    @PostMapping("/api/v1/admin/legal/requests/{id}/approve")
+    @PreAuthorize("hasAuthority('LEGAL:EDIT')")
+    public ResponseEntity<Void> approve(@AuthenticationPrincipal AdminPrincipal principal,
+                                        @PathVariable Long id, @RequestBody ApprovalRequest req) {
+        service.approve(principal.id(), id, req);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/api/v1/admin/legal/requests/{id}/disclosures")
     @PreAuthorize("hasAuthority('LEGAL:EDIT')")
     public DisclosureRow recordDisclosure(@AuthenticationPrincipal AdminPrincipal principal,
                                           @PathVariable Long id, @Valid @RequestBody RecordDisclosureRequest req) {
         return service.recordDisclosure(principal.id(), id, req);
+    }
+
+    @PostMapping("/api/v1/admin/legal/requests/{id}/tasks")
+    @PreAuthorize("hasAuthority('LEGAL:EDIT')")
+    public ResponseEntity<Void> addTask(@AuthenticationPrincipal AdminPrincipal principal,
+                                        @PathVariable Long id, @Valid @RequestBody CreateTaskRequest req) {
+        service.addTask(principal.id(), id, req);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/v1/admin/legal/tasks/{taskId}/complete")
+    @PreAuthorize("hasAuthority('LEGAL:EDIT')")
+    public ResponseEntity<Void> completeTask(@AuthenticationPrincipal AdminPrincipal principal,
+                                             @PathVariable Long taskId) {
+        service.completeTask(principal.id(), taskId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/api/v1/admin/legal/requests/{id}/correspondence")
+    @PreAuthorize("hasAuthority('LEGAL:EDIT')")
+    public ResponseEntity<Void> addCorrespondence(@AuthenticationPrincipal AdminPrincipal principal,
+                                                  @PathVariable Long id, @Valid @RequestBody AddCorrespondenceRequest req) {
+        service.addCorrespondence(principal.id(), id, req);
+        return ResponseEntity.noContent().build();
     }
 }

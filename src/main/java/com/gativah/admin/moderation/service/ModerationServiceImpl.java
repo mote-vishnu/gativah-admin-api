@@ -7,7 +7,11 @@ import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.moderation.dto.AppealResolveRequest;
 import com.gativah.admin.moderation.dto.AppealRow;
+import com.gativah.admin.moderation.dto.AuthorHistory;
+import com.gativah.admin.moderation.dto.AuthorStats;
+import com.gativah.admin.moderation.dto.AutoFlagSignal;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
+import com.gativah.admin.moderation.dto.ReasonCount;
 import com.gativah.admin.moderation.dto.ReportDetail;
 import com.gativah.admin.moderation.dto.ReportSummary;
 import com.gativah.admin.moderation.dto.ResolveRequest;
@@ -94,6 +98,16 @@ public class ModerationServiceImpl implements ModerationService {
                 targetType = TARGET_USER;
                 targetId = author;
             }
+            case REGION_BAN -> {
+                if (!ContentReport.CONTENT_POST.equalsIgnoreCase(report.getContentType())) {
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                            "Region-ban applies to post content only");
+                }
+                if (req.country() == null || req.country().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A country is required for REGION_BAN");
+                }
+                internal.regionBan(actorAdminId, report.getContentId(), req.country(), req.reason());
+            }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported action");
         }
 
@@ -115,6 +129,45 @@ public class ModerationServiceImpl implements ModerationService {
                 req.action() + " on " + targetType + " " + targetId, null, null);
 
         return new ResolveResponse(true, newStatus, "Report resolved");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReasonCount> queueByReason() {
+        return query.queueByReason();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ModerationActionRow> timeline(Long reportId) {
+        return actions.findByReportIdOrderByCreatedAtDesc(reportId).stream()
+                .map(a -> new ModerationActionRow(a.getId(), a.getReportId(), a.getAdminUserId(),
+                        a.getTargetType(), a.getTargetId(), a.getAction(), a.getReason(), a.getCreatedAt()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AuthorHistory authorHistory(Long reportId) {
+        ContentReport report = reports.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Report not found: " + reportId));
+        Long authorId = query.authorOf(report.getContentType(), report.getContentId());
+        if (authorId == null) {
+            return new AuthorHistory(null, null, 0, 0, 0, "Free", null, List.of());
+        }
+        AuthorStats stats = query.authorStats(authorId);
+        if (stats == null) {
+            return new AuthorHistory(authorId, null, query.reportsAgainst(authorId), 0, 0, "Free", null,
+                    query.recentSanctions(authorId, 5));
+        }
+        return new AuthorHistory(authorId, stats.accountStatus(), stats.reportsAgainst(), stats.openReports(),
+                stats.followers(), stats.plan(), stats.memberSince(), query.recentSanctions(authorId, 5));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AutoFlagSignal> signals(Long reportId) {
+        return query.signals(reportId);
     }
 
     @Override

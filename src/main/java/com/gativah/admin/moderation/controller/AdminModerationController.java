@@ -9,11 +9,15 @@ import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.moderation.dto.AppealResolveRequest;
 import com.gativah.admin.moderation.dto.AppealRow;
 import com.gativah.admin.moderation.dto.AssignRequest;
+import com.gativah.admin.moderation.dto.AuthorHistory;
 import com.gativah.admin.moderation.dto.BulkAssignRequest;
 import com.gativah.admin.moderation.dto.BulkResolveRequest;
 import com.gativah.admin.moderation.dto.BulkResolveResponse;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
+import com.gativah.admin.moderation.dto.ReasonBreakdownResponse;
 import com.gativah.admin.moderation.dto.ReportDetail;
+import com.gativah.admin.moderation.dto.SignalsResponse;
+import com.gativah.admin.moderation.dto.TimelineResponse;
 import com.gativah.admin.moderation.dto.ReportSummary;
 import com.gativah.admin.moderation.dto.ResolveRequest;
 import com.gativah.admin.moderation.dto.ResolveResponse;
@@ -75,7 +79,7 @@ public class AdminModerationController {
         for (Long id : req.ids()) {
             try {
                 // Each call is its own transaction (proxied), so one failure can't abort the rest.
-                service.resolve(principal.id(), id, new ResolveRequest(req.action(), req.reason(), null));
+                service.resolve(principal.id(), id, new ResolveRequest(req.action(), req.reason(), null, null));
                 resolved++;
             } catch (RuntimeException e) {
                 failed.add(id);
@@ -98,6 +102,30 @@ public class AdminModerationController {
                                            @Valid @RequestBody BulkAssignRequest req) {
         service.bulkAssign(principal.id(), req.ids(), req.adminId());
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/api/v1/admin/reports/by-reason")
+    @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
+    public ReasonBreakdownResponse byReason() {
+        return new ReasonBreakdownResponse(service.queueByReason());
+    }
+
+    @GetMapping("/api/v1/admin/reports/{id}/timeline")
+    @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
+    public TimelineResponse timeline(@PathVariable Long id) {
+        return new TimelineResponse(service.timeline(id));
+    }
+
+    @GetMapping("/api/v1/admin/reports/{id}/author-history")
+    @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
+    public AuthorHistory authorHistory(@PathVariable Long id) {
+        return service.authorHistory(id);
+    }
+
+    @GetMapping("/api/v1/admin/reports/{id}/signals")
+    @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
+    public SignalsResponse signals(@PathVariable Long id) {
+        return new SignalsResponse(service.signals(id));
     }
 
     @GetMapping("/api/v1/admin/moderation/history")

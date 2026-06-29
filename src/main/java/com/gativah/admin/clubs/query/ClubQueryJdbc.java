@@ -34,6 +34,21 @@ public class ClubQueryJdbc implements ClubQuery {
         this.jdbc = jdbc;
     }
 
+    private static String orderClause(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            var order = pageable.getSort().iterator().next();
+            String col = switch (order.getProperty()) {
+                case "name" -> "c.name";
+                case "members" -> "c.member_count";
+                case "events" -> "event_count";
+                case "visibility" -> "c.visibility";
+                default -> "c.created_at";
+            };
+            return col + (order.isAscending() ? " asc" : " desc");
+        }
+        return "c.created_at desc";
+    }
+
     @Override
     public Page<ClubSummary> search(String q, List<String> visibilities, List<Boolean> removed, Pageable pageable) {
         MapSqlParameterSource params = new MapSqlParameterSource().addValue("q", q);
@@ -57,7 +72,7 @@ public class ClubQueryJdbc implements ClubQuery {
                 + "c.member_count, (c.deleted_at is not null) as removed, c.created_at, "
                 + "(select count(*) from club_event e where e.club_id = c.id and e.deleted_at is null) as event_count "
                 + "from club c left join user_account au on au.id = c.owner_user_id " + filter
-                + " order by c.created_at desc limit :limit offset :offset";
+                + " order by " + orderClause(pageable) + " limit :limit offset :offset";
         params.addValue("limit", pageable.getPageSize());
         params.addValue("offset", pageable.getOffset());
 

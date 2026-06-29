@@ -29,6 +29,9 @@ public class ContentReport {
     public static final String STATUS_RESOLVED = "RESOLVED";
     public static final String STATUS_DISMISSED = "DISMISSED";
 
+    public static final String CONTENT_POST = "POST";
+    public static final String CONTENT_COMMENT = "COMMENT";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

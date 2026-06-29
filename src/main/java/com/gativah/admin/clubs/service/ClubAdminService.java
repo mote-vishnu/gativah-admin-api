@@ -13,4 +13,12 @@ public interface ClubAdminService {
     Page<ClubSummary> list(String q, List<String> visibilities, List<String> statuses, Pageable pageable);
 
     ClubDetail detail(Long id);
+
+    ClubDetail removeClub(Long actorAdminId, Long id, String reason);
+
+    ClubDetail restoreClub(Long actorAdminId, Long id);
+
+    ClubDetail removeMember(Long actorAdminId, Long id, Long userId);
+
+    ClubDetail removeEvent(Long actorAdminId, Long id, Long eventId, String reason);
 }

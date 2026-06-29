@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 
 import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.staff.dto.AssignRolesRequest;
+import com.gativah.admin.staff.dto.DirectoryResponse;
 import com.gativah.admin.staff.dto.InviteStaffRequest;
 import com.gativah.admin.staff.dto.StaffRow;
 import com.gativah.admin.staff.dto.UpdateStaffRequest;
@@ -35,6 +36,13 @@ public class AdminStaffController {
     @PreAuthorize("hasAuthority('STAFF:VIEW')")
     public Page<StaffRow> staff(@PageableDefault(size = 25) Pageable pageable) {
         return service.list(pageable);
+    }
+
+    /** Low-sensitivity id→name map so any operator can resolve actor ids in logs. */
+    @GetMapping("/api/v1/admin/staff/directory")
+    @PreAuthorize("isAuthenticated()")
+    public DirectoryResponse directory() {
+        return new DirectoryResponse(service.directory());
     }
 
     @PostMapping("/api/v1/admin/staff")

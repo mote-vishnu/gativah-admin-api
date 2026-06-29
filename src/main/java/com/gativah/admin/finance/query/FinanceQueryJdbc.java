@@ -106,6 +106,35 @@ public class FinanceQueryJdbc implements FinanceQuery {
                 new RevenueSlice(rs.getString("key"), rs.getBigDecimal("gross"), rs.getLong("cnt")));
     }
 
+    // Whitelisted ORDER BY for the client-supplied sort key (never raw-interpolated).
+    private static String txnOrder(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            var o = pageable.getSort().iterator().next();
+            String col = switch (o.getProperty()) {
+                case "gross" -> "gross_amount";
+                case "type" -> "type";
+                case "platform" -> "platform";
+                default -> "purchased_at";
+            };
+            return col + (o.isAscending() ? " asc" : " desc");
+        }
+        return "purchased_at desc";
+    }
+
+    private static String subOrder(Pageable pageable) {
+        if (pageable.getSort().isSorted()) {
+            var o = pageable.getSort().iterator().next();
+            String col = switch (o.getProperty()) {
+                case "renews" -> "current_period_end";
+                case "state" -> "state";
+                case "platform" -> "platform";
+                default -> "updated_at";
+            };
+            return col + (o.isAscending() ? " asc" : " desc");
+        }
+        return "updated_at desc";
+    }
+
     @Override
     public Page<TransactionRow> transactions(String platform, String type, String status, String country,
                                              Long userId, Pageable pageable) {
@@ -123,7 +152,7 @@ public class FinanceQueryJdbc implements FinanceQuery {
         p.addValue("limit", pageable.getPageSize()).addValue("offset", pageable.getOffset());
         String sql = "select id,user_id,plan_code,platform,type,status,gross_amount,gross_currency,country_code,"
                 + "source,purchased_at from billing_transaction " + where
-                + "order by purchased_at desc limit :limit offset :offset";
+                + "order by " + txnOrder(pageable) + " limit :limit offset :offset";
         List<TransactionRow> rows = jdbc.query(sql, p, (rs, i) -> new TransactionRow(
                 rs.getLong("id"), (Long) rs.getObject("user_id"), rs.getString("plan_code"),
                 rs.getString("platform"), rs.getString("type"), rs.getString("status"),
@@ -142,7 +171,7 @@ public class FinanceQueryJdbc implements FinanceQuery {
         }
         p.addValue("limit", pageable.getPageSize()).addValue("offset", pageable.getOffset());
         String sql = "select id,user_id,plan_code,platform,state,auto_renew,is_trial,current_period_end "
-                + "from subscription " + where + "order by updated_at desc limit :limit offset :offset";
+                + "from subscription " + where + "order by " + subOrder(pageable) + " limit :limit offset :offset";
         List<SubscriptionRow> rows = jdbc.query(sql, p, (rs, i) -> new SubscriptionRow(
                 rs.getLong("id"), (Long) rs.getObject("user_id"), rs.getString("plan_code"),
                 rs.getString("platform"), rs.getString("state"), rs.getBoolean("auto_renew"),

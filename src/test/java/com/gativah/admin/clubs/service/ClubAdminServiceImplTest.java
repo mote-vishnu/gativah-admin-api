@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 
+import com.gativah.admin.audit.service.AuditService;
+import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.clubs.query.ClubQuery;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -23,12 +25,14 @@ import org.springframework.web.server.ResponseStatusException;
 class ClubAdminServiceImplTest {
 
     @Mock ClubQuery query;
+    @Mock PacegritInternalClient internal;
+    @Mock AuditService audit;
 
     ClubAdminServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new ClubAdminServiceImpl(query);
+        service = new ClubAdminServiceImpl(query, internal, audit);
     }
 
     @Test

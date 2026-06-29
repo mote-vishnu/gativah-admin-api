@@ -11,9 +11,25 @@ public interface PacegritInternalClient {
 
     void takedown(Long actorAdminId, String contentType, Long contentId, String reason);
 
+    void regionBan(Long actorAdminId, Long postId, String country, String reason);
+
     void suspendUser(Long actorAdminId, Long userId, String reason, LocalDateTime suspendedUntil);
 
     void banUser(Long actorAdminId, Long userId, String reason);
 
     void reinstateUser(Long actorAdminId, Long userId);
+
+    void grantComp(Long actorAdminId, Long userId, String code, LocalDateTime expiresAt, String reason);
+
+    void revokeComp(Long actorAdminId, Long userId, String code);
+
+    void setVerified(Long actorAdminId, Long userId, boolean grant);
+
+    void removeClub(Long actorAdminId, Long clubId, String reason);
+
+    void restoreClub(Long actorAdminId, Long clubId);
+
+    void removeClubMember(Long actorAdminId, Long clubId, Long userId);
+
+    void removeClubEvent(Long actorAdminId, Long clubId, Long eventId, String reason);
 }

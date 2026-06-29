@@ -4,7 +4,10 @@ import java.util.List;
 
 import com.gativah.admin.moderation.dto.AppealResolveRequest;
 import com.gativah.admin.moderation.dto.AppealRow;
+import com.gativah.admin.moderation.dto.AuthorHistory;
+import com.gativah.admin.moderation.dto.AutoFlagSignal;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
+import com.gativah.admin.moderation.dto.ReasonCount;
 import com.gativah.admin.moderation.dto.ReportDetail;
 import com.gativah.admin.moderation.dto.ReportSummary;
 import com.gativah.admin.moderation.dto.ResolveRequest;
@@ -30,4 +33,12 @@ public interface ModerationService {
     void assign(Long actorAdminId, Long reportId, Long assigneeAdminId);
 
     void bulkAssign(Long actorAdminId, List<Long> ids, Long assigneeAdminId);
+
+    List<ReasonCount> queueByReason();
+
+    List<ModerationActionRow> timeline(Long reportId);
+
+    AuthorHistory authorHistory(Long reportId);
+
+    List<AutoFlagSignal> signals(Long reportId);
 }
