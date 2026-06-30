@@ -9,7 +9,9 @@ public record LegalRequestSummary(
         String requestingAuthority,
         Long subjectUserId,
         String status,
+        String approvalStatus,
         LocalDateTime receivedAt,
         LocalDateTime dueAt,
+        boolean overdue,
         long disclosureCount) {
 }

@@ -19,7 +19,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class ContentServiceImpl implements ContentService {
 
-    private static final Set<String> TYPES = Set.of("POST", "COMMENT");
+    // POST/COMMENT for the content list union; STORY is takedown-only (stories have their own list query).
+    private static final Set<String> TYPES = Set.of("POST", "COMMENT", "STORY");
 
     private final ContentQuery query;
     private final PacegritInternalClient internal;

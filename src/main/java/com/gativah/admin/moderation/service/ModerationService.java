@@ -8,6 +8,8 @@ import com.gativah.admin.moderation.dto.AuthorHistory;
 import com.gativah.admin.moderation.dto.AutoFlagSignal;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
 import com.gativah.admin.moderation.dto.ReasonCount;
+import com.gativah.admin.moderation.dto.RegionBanRow;
+import com.gativah.admin.moderation.dto.ReportStats;
 import com.gativah.admin.moderation.dto.ReportDetail;
 import com.gativah.admin.moderation.dto.ReportSummary;
 import com.gativah.admin.moderation.dto.ResolveRequest;
@@ -35,6 +37,12 @@ public interface ModerationService {
     void bulkAssign(Long actorAdminId, List<Long> ids, Long assigneeAdminId);
 
     List<ReasonCount> queueByReason();
+
+    ReportStats stats();
+
+    List<RegionBanRow> regionBans();
+
+    void liftRegionBan(Long actorAdminId, Long regionBanId);
 
     List<ModerationActionRow> timeline(Long reportId);
 

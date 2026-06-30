@@ -15,5 +15,8 @@ public record ReportSummary(
         Long authorUserId,
         String authorUsername,
         String snippet,
-        Long assigneeAdminId) {
+        Long assigneeAdminId,
+        String maxSeverity,
+        long reporterCount,
+        long openReportsOnAuthor) {
 }

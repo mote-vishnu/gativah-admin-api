@@ -13,6 +13,8 @@ public interface PacegritInternalClient {
 
     void regionBan(Long actorAdminId, Long postId, String country, String reason);
 
+    void liftRegionBan(Long actorAdminId, Long regionBanId);
+
     void suspendUser(Long actorAdminId, Long userId, String reason, LocalDateTime suspendedUntil);
 
     void banUser(Long actorAdminId, Long userId, String reason);

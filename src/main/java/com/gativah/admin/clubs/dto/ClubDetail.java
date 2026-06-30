@@ -14,6 +14,7 @@ public record ClubDetail(
         int memberCount,
         boolean removed,
         LocalDateTime createdAt,
+        ClubInsights insights,
         List<ClubMemberRow> members,
         List<ClubEventRow> events) {
 }

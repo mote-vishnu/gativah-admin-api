@@ -9,9 +9,12 @@ import com.gativah.admin.legal.dto.AddCorrespondenceRequest;
 import com.gativah.admin.legal.dto.ApprovalRequest;
 import com.gativah.admin.legal.dto.CreateLegalRequest;
 import com.gativah.admin.legal.dto.CreateTaskRequest;
+import com.gativah.admin.legal.dto.DisclosureRegisterRow;
 import com.gativah.admin.legal.dto.DisclosureRow;
 import com.gativah.admin.legal.dto.LegalRequestDetail;
 import com.gativah.admin.legal.dto.LegalRequestSummary;
+import com.gativah.admin.legal.dto.LegalStats;
+import com.gativah.admin.legal.dto.LegalTaskListRow;
 import com.gativah.admin.legal.dto.RecordDisclosureRequest;
 import com.gativah.admin.legal.dto.UpdateLegalRequest;
 import com.gativah.admin.legal.service.LegalService;
@@ -42,9 +45,30 @@ public class AdminLegalController {
 
     @GetMapping("/api/v1/admin/legal/requests")
     @PreAuthorize("hasAuthority('LEGAL:VIEW')")
-    public Page<LegalRequestSummary> requests(@RequestParam(required = false) List<String> status,
+    public Page<LegalRequestSummary> requests(@RequestParam(required = false) String q,
+                                              @RequestParam(required = false) List<String> status,
+                                              @RequestParam(required = false) List<String> type,
+                                              @RequestParam(required = false, defaultValue = "false") boolean overdue,
                                               @PageableDefault(size = 20) Pageable pageable) {
-        return service.list(status, pageable);
+        return service.list(q, status, type, overdue, pageable);
+    }
+
+    @GetMapping("/api/v1/admin/legal/stats")
+    @PreAuthorize("hasAuthority('LEGAL:VIEW')")
+    public LegalStats stats() {
+        return service.stats();
+    }
+
+    @GetMapping("/api/v1/admin/legal/tasks")
+    @PreAuthorize("hasAuthority('LEGAL:VIEW')")
+    public Page<LegalTaskListRow> openTasks(@PageableDefault(size = 25) Pageable pageable) {
+        return service.openTasks(pageable);
+    }
+
+    @GetMapping("/api/v1/admin/legal/disclosures")
+    @PreAuthorize("hasAuthority('LEGAL:VIEW')")
+    public Page<DisclosureRegisterRow> disclosures(@PageableDefault(size = 25) Pageable pageable) {
+        return service.disclosureRegister(pageable);
     }
 
     @GetMapping("/api/v1/admin/legal/requests/{id}")

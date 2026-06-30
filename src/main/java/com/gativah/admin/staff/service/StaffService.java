@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.gativah.admin.staff.dto.AdminLite;
 import com.gativah.admin.staff.dto.InviteStaffRequest;
+import com.gativah.admin.staff.dto.SessionRow;
 import com.gativah.admin.staff.dto.StaffRow;
 import com.gativah.admin.staff.dto.UpdateStaffRequest;
 
@@ -20,6 +21,15 @@ public interface StaffService {
     StaffRow invite(Long actorAdminId, InviteStaffRequest req);
 
     StaffRow update(Long actorAdminId, Long id, UpdateStaffRequest req);
+
+    /** Clear an operator's MFA enrollment and force re-login (admin reset). */
+    StaffRow resetMfa(Long actorAdminId, Long id);
+
+    /** Active + recent sessions (issued tokens) for an operator. */
+    List<SessionRow> sessions(Long adminUserId);
+
+    /** Revoke a single session — its token is rejected on the next request. */
+    void revokeSession(Long actorAdminId, Long adminUserId, Long sessionId);
 
     StaffRow setRoles(Long actorAdminId, Long id, List<Long> roleIds);
 }

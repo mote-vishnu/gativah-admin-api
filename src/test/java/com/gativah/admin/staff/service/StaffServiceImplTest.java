@@ -16,6 +16,7 @@ import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.auth.model.AdminRole;
 import com.gativah.admin.auth.model.AdminUser;
 import com.gativah.admin.auth.repo.AdminRoleRepository;
+import com.gativah.admin.auth.repo.AdminSessionRepository;
 import com.gativah.admin.auth.repo.AdminUserRepository;
 import com.gativah.admin.staff.dto.InviteStaffRequest;
 import com.gativah.admin.staff.dto.StaffRow;
@@ -34,6 +35,7 @@ class StaffServiceImplTest {
 
     @Mock AdminUserRepository repo;
     @Mock AdminRoleRepository roleRepo;
+    @Mock AdminSessionRepository sessionRepo;
     @Mock PasswordEncoder encoder;
     @Mock AuditService audit;
 
@@ -41,7 +43,7 @@ class StaffServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new StaffServiceImpl(repo, roleRepo, encoder, audit);
+        service = new StaffServiceImpl(repo, roleRepo, sessionRepo, encoder, audit);
     }
 
     private static AdminRole role(Long id, String name) {

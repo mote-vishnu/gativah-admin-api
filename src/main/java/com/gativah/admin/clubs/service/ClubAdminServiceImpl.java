@@ -2,9 +2,11 @@ package com.gativah.admin.clubs.service;
 
 import java.util.List;
 
+import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 import com.gativah.admin.clubs.query.ClubQuery;
 
@@ -38,12 +40,22 @@ public class ClubAdminServiceImpl implements ClubAdminService {
     }
 
     @Override
+    public ClubStats stats() {
+        return query.stats();
+    }
+
+    @Override
     public ClubDetail detail(Long id) {
         ClubDetail detail = query.detail(id);
         if (detail == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Club not found: " + id);
         }
         return detail;
+    }
+
+    @Override
+    public Page<AuditEntryRow> audit(Long id, Pageable pageable) {
+        return audit.list(null, null, TARGET_CLUB, String.valueOf(id), null, null, null, pageable);
     }
 
     @Override

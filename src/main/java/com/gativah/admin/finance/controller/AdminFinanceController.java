@@ -5,7 +5,10 @@ import java.time.LocalDateTime;
 
 import com.gativah.admin.finance.dto.FinanceOverview;
 import com.gativah.admin.finance.dto.FinanceRevenueResponse;
+import com.gativah.admin.finance.dto.MrrMovement;
+import com.gativah.admin.finance.dto.PayoutsResponse;
 import com.gativah.admin.finance.dto.SubscriptionRow;
+import com.gativah.admin.finance.dto.TransactionDetail;
 import com.gativah.admin.finance.dto.TransactionRow;
 import com.gativah.admin.finance.dto.WebhookHealth;
 import com.gativah.admin.finance.service.FinanceService;
@@ -15,9 +18,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 /** Revenue, subscriptions, ledger, and webhook-health dashboards (FINANCE:VIEW). */
 @RestController
@@ -33,6 +39,16 @@ public class AdminFinanceController {
     @GetMapping("/api/v1/admin/finance/overview")
     public FinanceOverview overview() {
         return service.overview();
+    }
+
+    @GetMapping("/api/v1/admin/finance/mrr-movement")
+    public MrrMovement mrrMovement() {
+        return service.mrrMovement();
+    }
+
+    @GetMapping("/api/v1/admin/finance/payouts")
+    public PayoutsResponse payouts(@RequestParam(defaultValue = "30") int windowDays) {
+        return service.payouts(windowDays);
     }
 
     @GetMapping("/api/v1/admin/finance/revenue")
@@ -57,6 +73,15 @@ public class AdminFinanceController {
             @RequestParam(required = false) Long userId,
             @PageableDefault(size = 20) Pageable pageable) {
         return service.transactions(platform, type, status, country, userId, pageable);
+    }
+
+    @GetMapping("/api/v1/admin/finance/transactions/{id}")
+    public TransactionDetail transaction(@PathVariable long id) {
+        TransactionDetail detail = service.transactionDetail(id);
+        if (detail == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found");
+        }
+        return detail;
     }
 
     @GetMapping("/api/v1/admin/finance/subscriptions")

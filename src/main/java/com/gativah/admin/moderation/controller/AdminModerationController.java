@@ -15,7 +15,9 @@ import com.gativah.admin.moderation.dto.BulkResolveRequest;
 import com.gativah.admin.moderation.dto.BulkResolveResponse;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
 import com.gativah.admin.moderation.dto.ReasonBreakdownResponse;
+import com.gativah.admin.moderation.dto.RegionBansResponse;
 import com.gativah.admin.moderation.dto.ReportDetail;
+import com.gativah.admin.moderation.dto.ReportStats;
 import com.gativah.admin.moderation.dto.SignalsResponse;
 import com.gativah.admin.moderation.dto.TimelineResponse;
 import com.gativah.admin.moderation.dto.ReportSummary;
@@ -108,6 +110,25 @@ public class AdminModerationController {
     @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
     public ReasonBreakdownResponse byReason() {
         return new ReasonBreakdownResponse(service.queueByReason());
+    }
+
+    @GetMapping("/api/v1/admin/reports/stats")
+    @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
+    public ReportStats stats() {
+        return service.stats();
+    }
+
+    @GetMapping("/api/v1/admin/region-bans")
+    @PreAuthorize("hasAuthority('GRIEVANCES:VIEW')")
+    public RegionBansResponse regionBans() {
+        return new RegionBansResponse(service.regionBans());
+    }
+
+    @PostMapping("/api/v1/admin/region-bans/{id}/lift")
+    @PreAuthorize("hasAuthority('GRIEVANCES:EDIT')")
+    public ResponseEntity<Void> liftRegionBan(@AuthenticationPrincipal AdminPrincipal principal, @PathVariable Long id) {
+        service.liftRegionBan(principal.id(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/v1/admin/reports/{id}/timeline")

@@ -43,9 +43,13 @@ public class AdminJwtService {
     }
 
     public String generate(AdminUser user, List<String> authorities) {
+        return generate(user, authorities, null);
+    }
+
+    public String generate(AdminUser user, List<String> authorities, String jti) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + expirationMs);
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(user.getEmail())
                 .claim("uid", user.getId())
                 .claim("name", user.getName())
@@ -54,13 +58,15 @@ public class AdminJwtService {
                 .claim("tv", user.getTokenVersion())
                 .audience().add(audience).and()
                 .issuedAt(now)
-                .expiration(exp)
-                .signWith(key)
-                .compact();
+                .expiration(exp);
+        if (jti != null) {
+            builder = builder.id(jti);
+        }
+        return builder.signWith(key).compact();
     }
 
-    /** Parsed staff token: principal + Spring authorities + token version. */
-    public record Parsed(AdminPrincipal principal, List<String> authorities, int tokenVersion) {
+    /** Parsed staff token: principal + Spring authorities + token version + session id (jti). */
+    public record Parsed(AdminPrincipal principal, List<String> authorities, int tokenVersion, String jti) {
     }
 
     public Parsed parse(String token) {
@@ -76,8 +82,8 @@ public class AdminJwtService {
         List<String> authorities = c.get("authorities", List.class);
         Number tv = c.get("tv", Number.class);
         AdminPrincipal principal = new AdminPrincipal(uid, c.getSubject(), c.get("name", String.class),
-                roles == null ? List.of() : roles);
-        return new Parsed(principal, authorities, tv == null ? 0 : tv.intValue());
+                roles == null ? List.of() : roles, c.getId());
+        return new Parsed(principal, authorities, tv == null ? 0 : tv.intValue(), c.getId());
     }
 
     /** Dev secret is base64; fall back to raw UTF-8 bytes if it isn't. */

@@ -18,6 +18,7 @@ import com.gativah.admin.auth.dto.LoginRequest;
 import com.gativah.admin.auth.dto.MfaRequest;
 import com.gativah.admin.auth.model.AdminRole;
 import com.gativah.admin.auth.model.AdminUser;
+import com.gativah.admin.auth.repo.AdminSessionRepository;
 import com.gativah.admin.auth.repo.AdminUserRepository;
 import com.gativah.admin.auth.security.AdminJwtService;
 import com.gativah.admin.auth.security.TotpService;
@@ -34,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 class AdminAuthServiceTest {
 
     @Mock AdminUserRepository repo;
+    @Mock AdminSessionRepository sessions;
     @Mock PasswordEncoder encoder;
     @Mock TotpService totp;
     @Mock AdminJwtService jwt;
@@ -43,7 +45,7 @@ class AdminAuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AdminAuthService(repo, encoder, totp, jwt, audit);
+        service = new AdminAuthService(repo, sessions, encoder, totp, jwt, audit);
     }
 
     private AdminUser user(boolean active, boolean mfa) {
@@ -67,7 +69,7 @@ class AdminAuthServiceTest {
     void login_without_mfa_issues_a_token() {
         when(repo.findByEmailIgnoreCase("dev@gativah.com")).thenReturn(Optional.of(user(true, false)));
         when(encoder.matches("pw", "hash")).thenReturn(true);
-        when(jwt.generate(any(), any())).thenReturn("tok");
+        when(jwt.generate(any(), any(), any())).thenReturn("tok");
         when(jwt.expirationMs()).thenReturn(1_800_000L);
 
         AuthResponse res = service.login(new LoginRequest("dev@gativah.com", "pw"));
@@ -120,7 +122,7 @@ class AdminAuthServiceTest {
         when(repo.findByEmailIgnoreCase("dev@gativah.com")).thenReturn(Optional.of(user(true, true)));
         when(encoder.matches("pw", "hash")).thenReturn(true);
         when(totp.verify(anyString(), eq("123456"))).thenReturn(true);
-        when(jwt.generate(any(), any())).thenReturn("tok");
+        when(jwt.generate(any(), any(), any())).thenReturn("tok");
         when(jwt.expirationMs()).thenReturn(1_800_000L);
 
         AuthResponse res = service.verifyMfa(new MfaRequest("dev@gativah.com", "pw", "123456"));

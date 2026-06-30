@@ -2,9 +2,11 @@ package com.gativah.admin.clubs.controller;
 
 import java.util.List;
 
+import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.clubs.dto.ClubActionRequest;
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 import com.gativah.admin.clubs.service.ClubAdminService;
 
@@ -39,10 +41,22 @@ public class AdminClubsController {
         return service.list(q, visibility, status, pageable);
     }
 
+    @GetMapping("/api/v1/admin/clubs/stats")
+    @PreAuthorize("hasAuthority('CLUBS:VIEW')")
+    public ClubStats stats() {
+        return service.stats();
+    }
+
     @GetMapping("/api/v1/admin/clubs/{id}")
     @PreAuthorize("hasAuthority('CLUBS:VIEW')")
     public ClubDetail club(@PathVariable Long id) {
         return service.detail(id);
+    }
+
+    @GetMapping("/api/v1/admin/clubs/{id}/audit")
+    @PreAuthorize("hasAuthority('CLUBS:VIEW')")
+    public Page<AuditEntryRow> audit(@PathVariable Long id, @PageableDefault(size = 25) Pageable pageable) {
+        return service.audit(id, pageable);
     }
 
     @PostMapping("/api/v1/admin/clubs/{id}/remove")

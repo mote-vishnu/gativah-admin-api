@@ -3,6 +3,7 @@ package com.gativah.admin.clubs.query;
 import java.util.List;
 
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 
 import org.springframework.data.domain.Page;
@@ -14,4 +15,7 @@ public interface ClubQuery {
 
     /** Club + members + events, or null if it doesn't exist. */
     ClubDetail detail(Long id);
+
+    /** Directory-wide KPI band. */
+    ClubStats stats();
 }

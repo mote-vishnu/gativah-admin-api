@@ -8,7 +8,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import com.gativah.admin.auth.model.AdminSession;
 import com.gativah.admin.auth.model.AdminUser;
+import com.gativah.admin.auth.repo.AdminSessionRepository;
 import com.gativah.admin.auth.repo.AdminUserRepository;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -29,10 +31,12 @@ public class AdminJwtFilter extends OncePerRequestFilter {
 
     private final AdminJwtService jwtService;
     private final AdminUserRepository users;
+    private final AdminSessionRepository sessions;
 
-    public AdminJwtFilter(AdminJwtService jwtService, AdminUserRepository users) {
+    public AdminJwtFilter(AdminJwtService jwtService, AdminUserRepository users, AdminSessionRepository sessions) {
         this.jwtService = jwtService;
         this.users = users;
+        this.sessions = sessions;
     }
 
     @Override
@@ -47,6 +51,13 @@ public class AdminJwtFilter extends OncePerRequestFilter {
                 if (user == null || !user.isActive() || user.getTokenVersion() != parsed.tokenVersion()) {
                     // Account removed/disabled or forced logout (token-version bumped).
                     throw new IllegalStateException("Stale or revoked admin token");
+                }
+                // Per-session revoke: tokens carry a jti (older tokens may not — those skip this check).
+                if (parsed.jti() != null) {
+                    AdminSession session = sessions.findByJti(parsed.jti()).orElse(null);
+                    if (session == null || session.isRevoked()) {
+                        throw new IllegalStateException("Revoked session");
+                    }
                 }
                 List<SimpleGrantedAuthority> authorities = parsed.authorities().stream()
                         .map(SimpleGrantedAuthority::new)

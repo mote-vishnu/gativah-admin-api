@@ -11,12 +11,16 @@ import com.gativah.admin.legal.dto.CorrespondenceRow;
 import com.gativah.admin.legal.dto.CreateLegalRequest;
 import com.gativah.admin.legal.dto.CreateTaskRequest;
 import com.gativah.admin.legal.dto.CustodyEventRow;
+import com.gativah.admin.legal.dto.DisclosureRegisterRow;
 import com.gativah.admin.legal.dto.DisclosureRow;
 import com.gativah.admin.legal.dto.LegalRequestDetail;
 import com.gativah.admin.legal.dto.LegalRequestSummary;
+import com.gativah.admin.legal.dto.LegalStats;
+import com.gativah.admin.legal.dto.LegalTaskListRow;
 import com.gativah.admin.legal.dto.RecordDisclosureRequest;
 import com.gativah.admin.legal.dto.TaskRow;
 import com.gativah.admin.legal.dto.UpdateLegalRequest;
+import com.gativah.admin.legal.query.LegalQuery;
 import com.gativah.admin.legal.model.LegalCorrespondence;
 import com.gativah.admin.legal.model.LegalCustodyEvent;
 import com.gativah.admin.legal.model.LegalDisclosure;
@@ -47,26 +51,44 @@ public class LegalServiceImpl implements LegalService {
     private final LegalTaskRepository tasks;
     private final LegalCorrespondenceRepository correspondence;
     private final LegalCustodyEventRepository custody;
+    private final LegalQuery query;
     private final AuditService audit;
 
     public LegalServiceImpl(LegalRequestRepository requests, LegalDisclosureRepository disclosures,
                             LegalTaskRepository tasks, LegalCorrespondenceRepository correspondence,
-                            LegalCustodyEventRepository custody, AuditService audit) {
+                            LegalCustodyEventRepository custody, LegalQuery query, AuditService audit) {
         this.requests = requests;
         this.disclosures = disclosures;
         this.tasks = tasks;
         this.correspondence = correspondence;
         this.custody = custody;
+        this.query = query;
         this.audit = audit;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<LegalRequestSummary> list(List<String> statuses, Pageable pageable) {
-        Page<LegalRequest> page = (statuses == null || statuses.isEmpty())
-                ? requests.findAllByOrderByReceivedAtDesc(pageable)
-                : requests.findByStatusInOrderByReceivedAtDesc(statuses, pageable);
-        return page.map(this::toSummary);
+    public Page<LegalRequestSummary> list(String q, List<String> statuses, List<String> types,
+                                          boolean overdueOnly, Pageable pageable) {
+        return query.searchRequests(q, statuses, types, overdueOnly, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public LegalStats stats() {
+        return query.stats();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<LegalTaskListRow> openTasks(Pageable pageable) {
+        return query.openTasks(pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<DisclosureRegisterRow> disclosureRegister(Pageable pageable) {
+        return query.disclosureRegister(pageable);
     }
 
     @Override
@@ -238,8 +260,14 @@ public class LegalServiceImpl implements LegalService {
 
     private LegalRequestSummary toSummary(LegalRequest r) {
         return new LegalRequestSummary(r.getId(), r.getReference(), r.getRequestType(),
-                r.getRequestingAuthority(), r.getSubjectUserId(), r.getStatus(),
-                r.getReceivedAt(), r.getDueAt(), disclosures.countByRequestId(r.getId()));
+                r.getRequestingAuthority(), r.getSubjectUserId(), r.getStatus(), r.getApprovalStatus(),
+                r.getReceivedAt(), r.getDueAt(), isOverdue(r), disclosures.countByRequestId(r.getId()));
+    }
+
+    private static boolean isOverdue(LegalRequest r) {
+        return (LegalRequest.STATUS_RECEIVED.equals(r.getStatus())
+                || LegalRequest.STATUS_UNDER_REVIEW.equals(r.getStatus()))
+                && r.getDueAt() != null && r.getDueAt().isBefore(LocalDateTime.now());
     }
 
     private static DisclosureRow toRow(LegalDisclosure d) {

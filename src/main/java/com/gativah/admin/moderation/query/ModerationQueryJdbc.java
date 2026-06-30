@@ -3,11 +3,14 @@ package com.gativah.admin.moderation.query;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.gativah.admin.moderation.dto.AppealRow;
 import com.gativah.admin.moderation.dto.AuthorSanction;
 import com.gativah.admin.moderation.dto.AuthorStats;
 import com.gativah.admin.moderation.dto.AutoFlagSignal;
 import com.gativah.admin.moderation.dto.ReasonCount;
+import com.gativah.admin.moderation.dto.RegionBanRow;
 import com.gativah.admin.moderation.dto.ReportDetail;
+import com.gativah.admin.moderation.dto.ReportStats;
 import com.gativah.admin.moderation.dto.ReportSummary;
 
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -86,7 +89,16 @@ public class ModerationQueryJdbc implements ModerationQuery {
         String sql = "select cr.id, cr.content_type, cr.content_id, cr.reason, cr.status, cr.created_at, "
                 + "cr.reporter_user_id, ru.username as reporter_username, "
                 + "coalesce(p.author_user_id, c.author_user_id) as author_user_id, au.username as author_username, "
-                + "left(coalesce(p.content, c.content), 160) as snippet, cr.assignee_admin_id "
+                + "left(coalesce(p.content, c.content), 160) as snippet, cr.assignee_admin_id, "
+                + "(select max(case s.severity when 'HIGH' then 3 when 'MED' then 2 else 1 end) "
+                + "   from content_report_signal s where s.report_id = cr.id) as max_sev, "
+                + "(select count(*) from content_report cr2 where cr2.content_type = cr.content_type "
+                + "   and cr2.content_id = cr.content_id) as reporter_count, "
+                + "(select count(*) from content_report cr3 "
+                + "   left join post p3 on cr3.content_type = 'POST' and p3.id = cr3.content_id "
+                + "   left join post_comment c3 on cr3.content_type = 'COMMENT' and c3.id = cr3.content_id "
+                + "   where coalesce(p3.author_user_id, c3.author_user_id) = coalesce(p.author_user_id, c.author_user_id) "
+                + "     and cr3.status in ('PENDING', 'REVIEWING')) as open_on_author "
                 + JOINS + filter
                 + " order by " + orderClause(pageable) + " limit :limit offset :offset";
         params.addValue("limit", pageable.getPageSize());
@@ -104,8 +116,20 @@ public class ModerationQueryJdbc implements ModerationQuery {
                 (Long) rs.getObject("author_user_id"),
                 rs.getString("author_username"),
                 rs.getString("snippet"),
-                (Long) rs.getObject("assignee_admin_id")));
+                (Long) rs.getObject("assignee_admin_id"),
+                severityLabel(rs.getObject("max_sev") == null ? 0 : rs.getInt("max_sev")),
+                rs.getLong("reporter_count"),
+                rs.getLong("open_on_author")));
         return new PageImpl<>(rows, pageable, count);
+    }
+
+    private static String severityLabel(int rank) {
+        return switch (rank) {
+            case 3 -> "HIGH";
+            case 2 -> "MED";
+            case 1 -> "LOW";
+            default -> null;
+        };
     }
 
     @Override
@@ -155,6 +179,88 @@ public class ModerationQueryJdbc implements ModerationQuery {
                 + "where status in ('PENDING', 'REVIEWING') group by reason order by cnt desc";
         return jdbc.query(sql, new MapSqlParameterSource(),
                 (rs, i) -> new ReasonCount(rs.getString("reason"), rs.getLong("cnt")));
+    }
+
+    @Override
+    public Page<AppealRow> appeals(String status, Pageable pageable) {
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("status", status);
+        Long total = jdbc.queryForObject(
+                "select count(*) from appeal where (cast(:status as varchar) is null or status = :status)", params, Long.class);
+        long count = total == null ? 0 : total;
+        if (count == 0) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        String sql = "select a.id, a.subject_user_id, u.username as subject_username, a.related_report_id, "
+                + "a.related_action_id, ma.action as original_action, a.message, a.status, a.created_at "
+                + "from appeal a "
+                + "left join user_account u on u.id = a.subject_user_id "
+                + "left join moderation_action ma on ma.id = a.related_action_id "
+                + "where (cast(:status as varchar) is null or a.status = :status) "
+                + "order by a.created_at desc limit :limit offset :offset";
+        params.addValue("limit", pageable.getPageSize()).addValue("offset", pageable.getOffset());
+        List<AppealRow> rows = jdbc.query(sql, params, (rs, i) -> new AppealRow(
+                rs.getLong("id"),
+                (Long) rs.getObject("subject_user_id"),
+                rs.getString("subject_username"),
+                (Long) rs.getObject("related_report_id"),
+                (Long) rs.getObject("related_action_id"),
+                rs.getString("original_action"),
+                rs.getString("message"),
+                rs.getString("status"),
+                rs.getTimestamp("created_at") == null ? null : rs.getTimestamp("created_at").toLocalDateTime()));
+        return new PageImpl<>(rows, pageable, count);
+    }
+
+    @Override
+    public List<RegionBanRow> regionBans() {
+        String sql = "select rb.id, rb.post_id, rb.country, rb.reason, rb.banned_by_user_id, rb.banned_at, "
+                + "rb.lifted_at, au.username as author_username, left(p.content, 120) as snippet "
+                + "from post_region_ban rb "
+                + "left join post p on p.id = rb.post_id "
+                + "left join user_account au on au.id = p.author_user_id "
+                + "order by (rb.lifted_at is null) desc, rb.banned_at desc limit 200";
+        return jdbc.query(sql, new MapSqlParameterSource(), (rs, i) -> new RegionBanRow(
+                rs.getLong("id"),
+                (Long) rs.getObject("post_id"),
+                rs.getString("country"),
+                rs.getString("reason"),
+                (Long) rs.getObject("banned_by_user_id"),
+                rs.getTimestamp("banned_at") == null ? null : rs.getTimestamp("banned_at").toLocalDateTime(),
+                rs.getObject("lifted_at") != null,
+                rs.getString("author_username"),
+                rs.getString("snippet")));
+    }
+
+    @Override
+    public ReportStats stats() {
+        // Per-reason SLA mirrors the client (Illegal 2h, Harassment/Nudity 4h, Misinformation 12h, else 24h).
+        String agg = "select "
+                + "count(*) filter (where status = 'PENDING') as pending, "
+                + "count(*) filter (where status = 'REVIEWING') as reviewing, "
+                + "count(*) filter (where status in ('RESOLVED','DISMISSED') and reviewed_at >= now() - interval '24 hours') as resolved24h, "
+                + "count(*) filter (where status in ('PENDING','REVIEWING') and created_at < now() - "
+                + "   (case reason when 'Illegal' then interval '2 hours' when 'Harassment' then interval '4 hours' "
+                + "                when 'Nudity' then interval '4 hours' when 'Misinformation' then interval '12 hours' "
+                + "                else interval '24 hours' end)) as sla_breaches "
+                + "from content_report";
+        MapSqlParameterSource noParams = new MapSqlParameterSource();
+        long[] counts = jdbc.queryForObject(agg, noParams, (rs, i) -> new long[] {
+                rs.getLong("pending"), rs.getLong("reviewing"), rs.getLong("resolved24h"), rs.getLong("sla_breaches") });
+
+        String repeat = "select count(*) from ("
+                + "select coalesce(p.author_user_id, c.author_user_id) as author "
+                + "from content_report cr "
+                + "left join post p on cr.content_type = 'POST' and p.id = cr.content_id "
+                + "left join post_comment c on cr.content_type = 'COMMENT' and c.id = cr.content_id "
+                + "where cr.status in ('PENDING','REVIEWING') "
+                + "group by author having count(*) >= 3 and coalesce(p.author_user_id, c.author_user_id) is not null) t";
+        Long repeatOffenders = jdbc.queryForObject(repeat, noParams, Long.class);
+
+        long pending = counts == null ? 0 : counts[0];
+        long reviewing = counts == null ? 0 : counts[1];
+        return new ReportStats(pending + reviewing, pending, reviewing,
+                counts == null ? 0 : counts[3], counts == null ? 0 : counts[2],
+                repeatOffenders == null ? 0 : repeatOffenders);
     }
 
     @Override

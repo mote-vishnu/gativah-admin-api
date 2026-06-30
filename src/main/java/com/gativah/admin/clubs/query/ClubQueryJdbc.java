@@ -7,7 +7,9 @@ import java.util.List;
 
 import com.gativah.admin.clubs.dto.ClubDetail;
 import com.gativah.admin.clubs.dto.ClubEventRow;
+import com.gativah.admin.clubs.dto.ClubInsights;
 import com.gativah.admin.clubs.dto.ClubMemberRow;
+import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -99,6 +101,7 @@ public class ClubQueryJdbc implements ClubQuery {
 
         List<ClubMemberRow> members = members(id);
         List<ClubEventRow> events = events(id);
+        ClubInsights insights = insights(id);
 
         try {
             return jdbc.queryForObject(coreSql, p, (rs, i) -> new ClubDetail(
@@ -112,11 +115,67 @@ public class ClubQueryJdbc implements ClubQuery {
                     rs.getInt("member_count"),
                     rs.getBoolean("removed"),
                     ts(rs, "created_at"),
+                    insights,
                     members,
                     events));
         } catch (EmptyResultDataAccessException e) {
             return null;
         }
+    }
+
+    @Override
+    public ClubStats stats() {
+        String sql = """
+                select
+                  count(*) as total,
+                  count(*) filter (where c.deleted_at is null) as active,
+                  count(*) filter (where c.deleted_at is not null) as removed,
+                  count(*) filter (where c.visibility = 'PRIVATE') as private,
+                  coalesce(sum(c.member_count) filter (where c.deleted_at is null), 0) as members,
+                  coalesce(avg(c.member_count) filter (where c.deleted_at is null), 0) as avg_members,
+                  count(*) filter (where c.created_at >= now() - interval '30 days') as new_30d,
+                  coalesce(max(c.member_count) filter (where c.deleted_at is null), 0) as largest,
+                  (select count(*) from club_event e
+                     join club cc on cc.id = e.club_id
+                     where e.deleted_at is null and cc.deleted_at is null
+                       and e.starts_at >= now()) as upcoming_events
+                from club c
+                """;
+        return jdbc.queryForObject(sql, new MapSqlParameterSource(), (rs, i) -> new ClubStats(
+                rs.getLong("total"),
+                rs.getLong("active"),
+                rs.getLong("removed"),
+                rs.getLong("private"),
+                rs.getLong("members"),
+                Math.round(rs.getDouble("avg_members") * 10.0) / 10.0,
+                rs.getLong("new_30d"),
+                rs.getLong("upcoming_events"),
+                rs.getLong("largest")));
+    }
+
+    private ClubInsights insights(Long clubId) {
+        MapSqlParameterSource p = new MapSqlParameterSource("id", clubId);
+        String sql = """
+                select
+                  (select count(*) from club_membership m where m.club_id = :id and m.role = 'OWNER') as owners,
+                  (select count(*) from club_membership m where m.club_id = :id and m.role = 'ADMIN') as admins,
+                  (select count(*) from club_membership m where m.club_id = :id and m.role not in ('OWNER','ADMIN')) as members,
+                  (select count(*) from club_membership m where m.club_id = :id and m.status = 'PENDING') as pending,
+                  (select count(*) from club_membership m where m.club_id = :id and m.joined_at >= now() - interval '30 days') as new_30d,
+                  (select count(*) from club_event e where e.club_id = :id and e.deleted_at is null and e.starts_at >= now()) as upcoming,
+                  (select count(*) from club_event e where e.club_id = :id and e.deleted_at is null and e.starts_at < now()) as past,
+                  (select count(*) from club_event_rsvp r join club_event e on e.id = r.event_id
+                     where e.club_id = :id and e.deleted_at is null) as rsvps
+                """;
+        return jdbc.queryForObject(sql, p, (rs, i) -> new ClubInsights(
+                rs.getLong("owners"),
+                rs.getLong("admins"),
+                rs.getLong("members"),
+                rs.getLong("pending"),
+                rs.getLong("upcoming"),
+                rs.getLong("past"),
+                rs.getLong("rsvps"),
+                rs.getLong("new_30d")));
     }
 
     private List<ClubMemberRow> members(Long clubId) {

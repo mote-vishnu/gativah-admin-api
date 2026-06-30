@@ -4,10 +4,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.gativah.admin.finance.dto.FinanceOverview;
+import com.gativah.admin.finance.dto.MrrMovement;
+import com.gativah.admin.finance.dto.PayoutsResponse;
 import com.gativah.admin.finance.dto.FinanceRevenueResponse;
 import com.gativah.admin.finance.dto.RevenuePoint;
 import com.gativah.admin.finance.dto.RevenueSlice;
 import com.gativah.admin.finance.dto.SubscriptionRow;
+import com.gativah.admin.finance.dto.TransactionDetail;
 import com.gativah.admin.finance.dto.TransactionRow;
 import com.gativah.admin.finance.dto.WebhookHealth;
 import com.gativah.admin.finance.query.FinanceQuery;
@@ -35,6 +38,17 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     @Override
+    public MrrMovement mrrMovement() {
+        return query.mrrMovement();
+    }
+
+    @Override
+    public PayoutsResponse payouts(int windowDays) {
+        int days = windowDays <= 0 ? 30 : Math.min(windowDays, 365);
+        return query.payouts(days);
+    }
+
+    @Override
     public FinanceRevenueResponse revenue(String granularity, LocalDateTime from, LocalDateTime to, String groupBy) {
         String unit = "day".equalsIgnoreCase(granularity) ? "day" : "month";
         LocalDateTime end = to != null ? to : LocalDateTime.now();
@@ -51,6 +65,11 @@ public class FinanceServiceImpl implements FinanceService {
     public Page<TransactionRow> transactions(String platform, String type, String status, String country,
                                              Long userId, Pageable pageable) {
         return query.transactions(platform, type, status, country, userId, pageable);
+    }
+
+    @Override
+    public TransactionDetail transactionDetail(long id) {
+        return query.transactionDetail(id);
     }
 
     @Override

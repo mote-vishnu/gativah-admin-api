@@ -24,6 +24,7 @@ import com.gativah.admin.legal.repo.LegalCustodyEventRepository;
 import com.gativah.admin.legal.repo.LegalDisclosureRepository;
 import com.gativah.admin.legal.repo.LegalRequestRepository;
 import com.gativah.admin.legal.repo.LegalTaskRepository;
+import com.gativah.admin.legal.query.LegalQuery;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,13 +41,14 @@ class LegalServiceImplTest {
     @Mock LegalTaskRepository tasks;
     @Mock LegalCorrespondenceRepository correspondence;
     @Mock LegalCustodyEventRepository custody;
+    @Mock LegalQuery query;
     @Mock AuditService audit;
 
     LegalServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new LegalServiceImpl(requests, disclosures, tasks, correspondence, custody, audit);
+        service = new LegalServiceImpl(requests, disclosures, tasks, correspondence, custody, query, audit);
     }
 
     private LegalRequest request(Long id, String status) {

@@ -2,6 +2,9 @@ package com.gativah.admin.auth.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.auth.dto.AdminMeResponse;
@@ -11,7 +14,9 @@ import com.gativah.admin.auth.dto.MfaEnableRequest;
 import com.gativah.admin.auth.dto.MfaRequest;
 import com.gativah.admin.auth.dto.MfaStartResponse;
 import com.gativah.admin.auth.dto.MfaStatusResponse;
+import com.gativah.admin.auth.model.AdminSession;
 import com.gativah.admin.auth.model.AdminUser;
+import com.gativah.admin.auth.repo.AdminSessionRepository;
 import com.gativah.admin.auth.repo.AdminUserRepository;
 import com.gativah.admin.auth.security.AdminJwtService;
 import com.gativah.admin.auth.security.TotpService;
@@ -20,6 +25,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -31,14 +38,16 @@ import org.springframework.web.server.ResponseStatusException;
 public class AdminAuthService {
 
     private final AdminUserRepository repo;
+    private final AdminSessionRepository sessions;
     private final PasswordEncoder passwordEncoder;
     private final TotpService totpService;
     private final AdminJwtService jwtService;
     private final AuditService auditService;
 
-    public AdminAuthService(AdminUserRepository repo, PasswordEncoder passwordEncoder,
+    public AdminAuthService(AdminUserRepository repo, AdminSessionRepository sessions, PasswordEncoder passwordEncoder,
                             TotpService totpService, AdminJwtService jwtService, AuditService auditService) {
         this.repo = repo;
+        this.sessions = sessions;
         this.passwordEncoder = passwordEncoder;
         this.totpService = totpService;
         this.jwtService = jwtService;
@@ -64,6 +73,25 @@ public class AdminAuthService {
             throw unauthorized();
         }
         return issue(user);
+    }
+
+    /**
+     * Sliding session: re-issue a fresh token for the still-authenticated operator,
+     * reusing the same session (jti) so the session list + per-session revoke stay
+     * accurate. The JWT filter has already validated the caller (active + token
+     * version + session not revoked) before this runs.
+     */
+    @Transactional
+    public AuthResponse refresh(Long adminId, String jti) {
+        AdminUser user = requireAdmin(adminId);
+        if (!user.isActive()) {
+            throw unauthorized();
+        }
+        List<String> authorities = user.permissionCodes();
+        String token = jwtService.generate(user, authorities, jti);
+        AdminMeResponse me = new AdminMeResponse(
+                user.getId(), user.getEmail(), user.getName(), user.roleNames(), authorities);
+        return AuthResponse.issued(token, jwtService.expirationMs(), me);
     }
 
     // ── MFA enrollment (authenticated operator) ───────────────
@@ -113,7 +141,14 @@ public class AdminAuthService {
         user.setLastLoginAt(LocalDateTime.now());
         repo.save(user);
         List<String> authorities = user.permissionCodes();
-        String token = jwtService.generate(user, authorities);
+        String jti = UUID.randomUUID().toString();
+        AdminSession session = new AdminSession();
+        session.setAdminUserId(user.getId());
+        session.setJti(jti);
+        session.setIp(currentIp());
+        session.setUserAgent(currentUserAgent());
+        sessions.save(session);
+        String token = jwtService.generate(user, authorities, jti);
         auditService.record(user.getId(), "LOGIN", "Signed in");
         AdminMeResponse me = new AdminMeResponse(
                 user.getId(), user.getEmail(), user.getName(), user.roleNames(), authorities);
@@ -122,5 +157,32 @@ public class AdminAuthService {
 
     private ResponseStatusException unauthorized() {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+    }
+
+    private static String currentIp() {
+        HttpServletRequest req = currentRequest();
+        if (req == null) {
+            return null;
+        }
+        String xff = req.getHeader("X-Forwarded-For");
+        return xff != null && !xff.isBlank() ? xff.split(",")[0].trim() : req.getRemoteAddr();
+    }
+
+    private static String currentUserAgent() {
+        HttpServletRequest req = currentRequest();
+        if (req == null) {
+            return null;
+        }
+        String ua = req.getHeader("User-Agent");
+        return ua != null && ua.length() > 400 ? ua.substring(0, 400) : ua;
+    }
+
+    private static HttpServletRequest currentRequest() {
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            return attrs == null ? null : attrs.getRequest();
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 }

@@ -45,6 +45,7 @@ public class PacegritInternalClientImpl implements PacegritInternalClient {
     private record ClubReasonBody(String reason) {
     }
 
+
     @Override
     public void takedown(Long actorAdminId, String contentType, Long contentId, String reason) {
         post("/internal/admin/content/takedown", actorAdminId, new TakedownBody(contentType, contentId, reason));
@@ -53,6 +54,11 @@ public class PacegritInternalClientImpl implements PacegritInternalClient {
     @Override
     public void regionBan(Long actorAdminId, Long postId, String country, String reason) {
         post("/internal/admin/content/region-ban", actorAdminId, new RegionBanBody(postId, country, reason));
+    }
+
+    @Override
+    public void liftRegionBan(Long actorAdminId, Long regionBanId) {
+        post("/internal/admin/region-bans/" + regionBanId + "/lift", actorAdminId, null);
     }
 
     @Override
@@ -99,6 +105,7 @@ public class PacegritInternalClientImpl implements PacegritInternalClient {
     public void removeClubMember(Long actorAdminId, Long clubId, Long userId) {
         post("/internal/admin/clubs/" + clubId + "/members/" + userId + "/remove", actorAdminId, null);
     }
+
 
     @Override
     public void removeClubEvent(Long actorAdminId, Long clubId, Long eventId, String reason) {

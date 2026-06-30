@@ -12,7 +12,9 @@ import com.gativah.admin.moderation.dto.AuthorStats;
 import com.gativah.admin.moderation.dto.AutoFlagSignal;
 import com.gativah.admin.moderation.dto.ModerationActionRow;
 import com.gativah.admin.moderation.dto.ReasonCount;
+import com.gativah.admin.moderation.dto.RegionBanRow;
 import com.gativah.admin.moderation.dto.ReportDetail;
+import com.gativah.admin.moderation.dto.ReportStats;
 import com.gativah.admin.moderation.dto.ReportSummary;
 import com.gativah.admin.moderation.dto.ResolveRequest;
 import com.gativah.admin.moderation.dto.ResolveResponse;
@@ -128,6 +130,13 @@ public class ModerationServiceImpl implements ModerationService {
         audit.record(actorAdminId, "REPORT_RESOLVE", "REPORT", String.valueOf(reportId),
                 req.action() + " on " + targetType + " " + targetId, null, null);
 
+        // When the action sanctions a user, also stamp a USER-target audit row so it
+        // shows on that user's audit trail (not just the report's timeline).
+        if (TARGET_USER.equals(targetType) && targetId != null) {
+            audit.record(actorAdminId, "USER_" + req.action().name(), TARGET_USER, String.valueOf(targetId),
+                    "via report #" + reportId + (req.reason() == null ? "" : " — " + req.reason()), null, null);
+        }
+
         return new ResolveResponse(true, newStatus, "Report resolved");
     }
 
@@ -135,6 +144,26 @@ public class ModerationServiceImpl implements ModerationService {
     @Transactional(readOnly = true)
     public List<ReasonCount> queueByReason() {
         return query.queueByReason();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ReportStats stats() {
+        return query.stats();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RegionBanRow> regionBans() {
+        return query.regionBans();
+    }
+
+    @Override
+    @Transactional
+    public void liftRegionBan(Long actorAdminId, Long regionBanId) {
+        internal.liftRegionBan(actorAdminId, regionBanId);
+        audit.record(actorAdminId, "REGION_BAN_LIFT", "REGION_BAN", String.valueOf(regionBanId),
+                "lifted region ban", null, null);
     }
 
     @Override
@@ -181,11 +210,7 @@ public class ModerationServiceImpl implements ModerationService {
     @Override
     @Transactional(readOnly = true)
     public Page<AppealRow> appeals(String status, Pageable pageable) {
-        Page<Appeal> page = status == null
-                ? appeals.findAllByOrderByCreatedAtDesc(pageable)
-                : appeals.findByStatusOrderByCreatedAtDesc(status, pageable);
-        return page.map(a -> new AppealRow(a.getId(), a.getSubjectUserId(), a.getRelatedReportId(),
-                a.getRelatedActionId(), a.getMessage(), a.getStatus(), a.getCreatedAt()));
+        return query.appeals(status, pageable);
     }
 
     @Override

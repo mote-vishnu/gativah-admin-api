@@ -9,6 +9,7 @@ import com.gativah.admin.auth.dto.MfaRequest;
 import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.auth.service.AdminAuthService;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 /** Staff sign-in (password → optional TOTP) and the current-operator endpoint. */
 @RestController
@@ -37,6 +39,15 @@ public class AdminAuthController {
     @PostMapping("/verify-mfa")
     public AuthResponse verifyMfa(@Valid @RequestBody MfaRequest req) {
         return authService.verifyMfa(req);
+    }
+
+    /** Sliding session: swap a still-valid token for a fresh one (same session). */
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@AuthenticationPrincipal AdminPrincipal principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
+        }
+        return authService.refresh(principal.id(), principal.jti());
     }
 
     @GetMapping("/me")
