@@ -38,14 +38,14 @@ class ContentServiceImplTest {
 
     @Test
     void list_normalizes_type_status_and_wraps_query() {
-        service.list(List.of("post"), "hi", List.of("active"), Pageable.ofSize(20));
-        verify(query).search(eq(List.of("POST")), eq("%hi%"), eq(List.of(false)), any(Pageable.class));
+        service.list(List.of("post"), "hi", List.of("active"), false, Pageable.ofSize(20));
+        verify(query).search(eq(List.of("POST")), eq("%hi%"), eq(List.of(false)), eq(false), any(Pageable.class));
     }
 
     @Test
     void list_passes_nulls_for_blank_or_unknown() {
-        service.list(List.of("bogus"), "  ", List.of("weird"), Pageable.ofSize(20));
-        verify(query).search(isNull(), isNull(), isNull(), any(Pageable.class));
+        service.list(List.of("bogus"), "  ", List.of("weird"), true, Pageable.ofSize(20));
+        verify(query).search(isNull(), isNull(), isNull(), eq(true), any(Pageable.class));
     }
 
     @Test

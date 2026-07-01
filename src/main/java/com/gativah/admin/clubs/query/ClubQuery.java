@@ -3,6 +3,9 @@ package com.gativah.admin.clubs.query;
 import java.util.List;
 
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubEventDetail;
+import com.gativah.admin.clubs.dto.ClubMemberRow;
+import com.gativah.admin.clubs.dto.ClubReportedContent;
 import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 
@@ -18,4 +21,13 @@ public interface ClubQuery {
 
     /** Directory-wide KPI band. */
     ClubStats stats();
+
+    /** Paged, filtered members of one club (role/status/username). */
+    Page<ClubMemberRow> members(Long clubId, String role, String status, String q, Pageable pageable);
+
+    /** One club event with RSVP tallies/list + route points, or null if it doesn't belong to the club. */
+    ClubEventDetail eventDetail(Long clubId, Long eventId);
+
+    /** Reported posts/comments inside the club (grouped by content, newest report first). */
+    List<ClubReportedContent> reportedContent(Long clubId);
 }

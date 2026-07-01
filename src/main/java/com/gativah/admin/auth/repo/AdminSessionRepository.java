@@ -1,5 +1,6 @@
 package com.gativah.admin.auth.repo;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,4 +13,10 @@ public interface AdminSessionRepository extends JpaRepository<AdminSession, Long
     Optional<AdminSession> findByJti(String jti);
 
     List<AdminSession> findByAdminUserIdOrderByCreatedAtDesc(Long adminUserId);
+
+    List<AdminSession> findByRevokedFalseOrderByCreatedAtDesc();
+
+    long countByRevokedFalse();
+
+    long countByCreatedAtGreaterThanEqual(LocalDateTime since);
 }

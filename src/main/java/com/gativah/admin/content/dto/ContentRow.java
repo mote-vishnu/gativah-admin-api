@@ -10,5 +10,8 @@ public record ContentRow(
         String authorUsername,
         String snippet,
         LocalDateTime createdAt,
-        boolean removed) {
+        boolean removed,
+        String activityType,
+        long openReports,
+        long totalReports) {
 }

@@ -1,5 +1,6 @@
 package com.gativah.admin.users.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -8,9 +9,13 @@ import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.users.dto.BanRequest;
 import com.gativah.admin.users.dto.SuspendRequest;
+import com.gativah.admin.users.dto.UserBilling;
+import com.gativah.admin.users.dto.UserContentResponse;
 import com.gativah.admin.users.dto.UserDetail;
 import com.gativah.admin.users.dto.UserInsights;
+import com.gativah.admin.users.dto.UserReportsResponse;
 import com.gativah.admin.users.dto.UserSummary;
+import com.gativah.admin.users.dto.UserTxnRow;
 import com.gativah.admin.users.query.UsersQuery;
 
 import org.springframework.data.domain.Page;
@@ -104,7 +109,42 @@ public class UserAdminServiceImpl implements UserAdminService {
         long sanctions = query.sanctionCount(userId);
         int score = riskScore(reports, sanctions, status);
         String level = score >= 60 ? "HIGH" : score >= 25 ? "MEDIUM" : "LOW";
-        return new UserInsights(reports, sanctions, score, level, query.devices(userId), query.activity(userId, 90));
+        return new UserInsights(reports, sanctions,
+                query.followerCount(userId), query.followingCount(userId), query.postCount(userId),
+                score, level, query.devices(userId), query.activity(userId, 90));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserContentResponse content(Long userId) {
+        return new UserContentResponse(query.content(userId, 40));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserBilling billing(Long userId) {
+        List<UserTxnRow> txns = query.transactions(userId, 50);
+        BigDecimal ltv = BigDecimal.ZERO;
+        long refunds = 0;
+        String currency = null;
+        for (UserTxnRow t : txns) {
+            boolean refund = t.type() != null && t.type().toUpperCase().contains("REFUND");
+            if (refund) {
+                refunds++;
+            } else if (t.amount() != null) {
+                ltv = ltv.add(t.amount());
+            }
+            if (currency == null && t.currency() != null) {
+                currency = t.currency();
+            }
+        }
+        return new UserBilling(ltv, currency == null ? "USD" : currency, refunds, txns.size(), txns);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserReportsResponse reportsAgainst(Long userId) {
+        return new UserReportsResponse(query.reportsAgainstList(userId, 40));
     }
 
     private int riskScore(long reports, long sanctions, String status) {

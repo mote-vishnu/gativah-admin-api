@@ -6,6 +6,9 @@ import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubEventDetail;
+import com.gativah.admin.clubs.dto.ClubMemberRow;
+import com.gativah.admin.clubs.dto.ClubReportedContent;
 import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 import com.gativah.admin.clubs.query.ClubQuery;
@@ -59,6 +62,15 @@ public class ClubAdminServiceImpl implements ClubAdminService {
     }
 
     @Override
+    public Page<ClubMemberRow> members(Long id, String role, String status, String q, Pageable pageable) {
+        return query.members(id, blankToNull(role), blankToNull(status), q, pageable);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim().toUpperCase();
+    }
+
+    @Override
     @Transactional
     public ClubDetail removeClub(Long actorAdminId, Long id, String reason) {
         internal.removeClub(actorAdminId, id, reason);
@@ -90,6 +102,29 @@ public class ClubAdminServiceImpl implements ClubAdminService {
         audit.record(actorAdminId, "CLUB_REMOVE_EVENT", TARGET_CLUB, String.valueOf(id),
                 "removed event #" + eventId + (reason == null ? "" : " — " + reason), null, null);
         return detail(id);
+    }
+
+    @Override
+    public List<ClubReportedContent> reportedContent(Long clubId) {
+        return query.reportedContent(clubId);
+    }
+
+    @Override
+    public ClubEventDetail eventDetail(Long clubId, Long eventId) {
+        ClubEventDetail e = query.eventDetail(clubId, eventId);
+        if (e == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found in club " + clubId);
+        }
+        return e;
+    }
+
+    @Override
+    @Transactional
+    public ClubEventDetail restoreEvent(Long actorAdminId, Long clubId, Long eventId) {
+        internal.restoreClubEvent(actorAdminId, clubId, eventId);
+        audit.record(actorAdminId, "CLUB_RESTORE_EVENT", TARGET_CLUB, String.valueOf(clubId),
+                "restored event #" + eventId, null, null);
+        return eventDetail(clubId, eventId);
     }
 
     /** Upper-cased, de-duped visibilities — or null when none apply. */

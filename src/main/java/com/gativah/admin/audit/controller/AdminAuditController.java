@@ -3,6 +3,7 @@ package com.gativah.admin.audit.controller;
 import java.time.LocalDate;
 
 import com.gativah.admin.audit.dto.AuditEntryRow;
+import com.gativah.admin.audit.dto.AuditStats;
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.auth.security.AdminPrincipal;
 
@@ -34,17 +35,28 @@ public class AdminAuditController {
                                      Authentication auth,
                                      @RequestParam(required = false) Long actorId,
                                      @RequestParam(required = false) String action,
+                                     @RequestParam(required = false) String category,
                                      @RequestParam(required = false) String q,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                      @PageableDefault(size = 25) Pageable pageable) {
-        boolean viewAll = auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority).anyMatch("AUDIT:VIEW"::equals);
-        // Operators without AUDIT:VIEW are forced to their own entries; actorId applies only to viewers.
-        Long scope = viewAll ? actorId : principal.id();
-        return audit.list(scope, action, null, null,
+        return audit.list(scope(principal, auth, actorId), action, category, null, null,
                 from == null ? null : from.atStartOfDay(),
                 to == null ? null : to.plusDays(1).atStartOfDay(),
                 q, pageable);
+    }
+
+    @GetMapping("/api/v1/admin/audit/stats")
+    @PreAuthorize("isAuthenticated()")
+    public AuditStats stats(@AuthenticationPrincipal AdminPrincipal principal, Authentication auth,
+                            @RequestParam(required = false) Long actorId) {
+        return audit.stats(scope(principal, auth, actorId));
+    }
+
+    /** AUDIT:VIEW holders may scope to any operator; everyone else is forced to their own entries. */
+    private static Long scope(AdminPrincipal principal, Authentication auth, Long actorId) {
+        boolean viewAll = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).anyMatch("AUDIT:VIEW"::equals);
+        return viewAll ? actorId : principal.id();
     }
 }

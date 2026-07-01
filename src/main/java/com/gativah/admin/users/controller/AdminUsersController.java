@@ -7,8 +7,11 @@ import com.gativah.admin.auth.security.AdminPrincipal;
 import com.gativah.admin.users.dto.BanRequest;
 import com.gativah.admin.users.dto.SetVerifiedRequest;
 import com.gativah.admin.users.dto.SuspendRequest;
+import com.gativah.admin.users.dto.UserBilling;
+import com.gativah.admin.users.dto.UserContentResponse;
 import com.gativah.admin.users.dto.UserDetail;
 import com.gativah.admin.users.dto.UserInsights;
+import com.gativah.admin.users.dto.UserReportsResponse;
 import com.gativah.admin.users.dto.UserSummary;
 import com.gativah.admin.users.service.UserAdminService;
 
@@ -79,6 +82,24 @@ public class AdminUsersController {
     @PreAuthorize("hasAuthority('USERS:VIEW')")
     public UserInsights insights(@PathVariable Long id) {
         return service.insights(id);
+    }
+
+    @GetMapping("/api/v1/admin/users/{id}/content")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
+    public UserContentResponse content(@PathVariable Long id) {
+        return service.content(id);
+    }
+
+    @GetMapping("/api/v1/admin/users/{id}/billing")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
+    public UserBilling billing(@PathVariable Long id) {
+        return service.billing(id);
+    }
+
+    @GetMapping("/api/v1/admin/users/{id}/reports")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
+    public UserReportsResponse reports(@PathVariable Long id) {
+        return service.reportsAgainst(id);
     }
 
     @GetMapping("/api/v1/admin/users/{id}/audit")

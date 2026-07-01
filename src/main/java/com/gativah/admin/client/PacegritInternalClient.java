@@ -34,4 +34,6 @@ public interface PacegritInternalClient {
     void removeClubMember(Long actorAdminId, Long clubId, Long userId);
 
     void removeClubEvent(Long actorAdminId, Long clubId, Long eventId, String reason);
+
+    void restoreClubEvent(Long actorAdminId, Long clubId, Long eventId);
 }

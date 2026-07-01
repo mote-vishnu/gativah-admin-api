@@ -6,11 +6,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubEventDetail;
 import com.gativah.admin.clubs.dto.ClubEventRow;
 import com.gativah.admin.clubs.dto.ClubInsights;
 import com.gativah.admin.clubs.dto.ClubMemberRow;
+import com.gativah.admin.clubs.dto.ClubReportedContent;
 import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
+import com.gativah.admin.clubs.dto.RoutePoint;
+import com.gativah.admin.clubs.dto.RsvpRow;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -124,6 +128,82 @@ public class ClubQueryJdbc implements ClubQuery {
     }
 
     @Override
+    public ClubEventDetail eventDetail(Long clubId, Long eventId) {
+        MapSqlParameterSource p = new MapSqlParameterSource().addValue("cid", clubId).addValue("eid", eventId);
+        String core = "select e.id, e.club_id, e.title, e.kind, e.description, e.location, e.starts_at, e.ends_at, "
+                + "e.distance_m, e.created_by_user_id, u.username as created_by_username, e.created_at, "
+                + "(e.deleted_at is not null) as removed, "
+                + "(select count(*) from club_event_rsvp r where r.event_id = e.id and r.status = 'GOING') as going, "
+                + "(select count(*) from club_event_rsvp r where r.event_id = e.id and r.status = 'MAYBE') as maybe, "
+                + "(select count(*) from club_event_rsvp r where r.event_id = e.id and r.status = 'DECLINED') as declined "
+                + "from club_event e left join user_account u on u.id = e.created_by_user_id "
+                + "where e.id = :eid and e.club_id = :cid";
+
+        List<ClubEventDetail> found = jdbc.query(core, p, (rs, i) -> new ClubEventDetail(
+                rs.getLong("id"), (Long) rs.getObject("club_id"), rs.getString("title"), rs.getString("kind"),
+                rs.getString("description"), rs.getString("location"), ts(rs, "starts_at"), ts(rs, "ends_at"),
+                (Integer) rs.getObject("distance_m"), (Long) rs.getObject("created_by_user_id"),
+                rs.getString("created_by_username"), ts(rs, "created_at"), rs.getBoolean("removed"),
+                rs.getLong("going"), rs.getLong("maybe"), rs.getLong("declined"), List.of(), List.of()));
+        if (found.isEmpty()) {
+            return null;
+        }
+        ClubEventDetail e = found.get(0);
+
+        List<RsvpRow> rsvps = jdbc.query(
+                "select r.user_id, ru.username, r.status, r.updated_at from club_event_rsvp r "
+                        + "left join user_account ru on ru.id = r.user_id where r.event_id = :eid "
+                        + "order by case r.status when 'GOING' then 0 when 'MAYBE' then 1 else 2 end, r.updated_at desc "
+                        + "limit 200",
+                p, (rs, i) -> new RsvpRow((Long) rs.getObject("user_id"), rs.getString("username"),
+                        rs.getString("status"), ts(rs, "updated_at")));
+
+        List<RoutePoint> route = jdbc.query(
+                "select seq_no, lat, lng from club_event_route_point where event_id = :eid order by seq_no",
+                p, (rs, i) -> new RoutePoint(rs.getInt("seq_no"), rs.getDouble("lat"), rs.getDouble("lng")));
+
+        return new ClubEventDetail(e.id(), e.clubId(), e.title(), e.kind(), e.description(), e.location(),
+                e.startsAt(), e.endsAt(), e.distanceM(), e.createdByUserId(), e.createdByUsername(),
+                e.createdAt(), e.removed(), e.rsvpGoing(), e.rsvpMaybe(), e.rsvpDeclined(), rsvps, route);
+    }
+
+    @Override
+    public List<ClubReportedContent> reportedContent(Long clubId) {
+        MapSqlParameterSource p = new MapSqlParameterSource("cid", clubId);
+        // Union reported posts + reported comments that belong to this club, then aggregate per content.
+        String sql = """
+                select x.ctype, x.cid, max(x.snippet) as snippet, max(x.author_user_id) as author_user_id,
+                       max(x.author_username) as author_username,
+                       count(*) filter (where x.status in ('PENDING','REVIEWING')) as open_reports,
+                       count(*) as total_reports,
+                       max(x.report_id) as latest_report_id, max(x.report_at) as latest_report_at
+                from (
+                    select 'POST' as ctype, p.id as cid, left(p.content, 160) as snippet,
+                           p.author_user_id, au.username as author_username,
+                           cr.id as report_id, cr.status, cr.created_at as report_at
+                    from content_report cr
+                    join post p on p.id = cr.content_id and cr.content_type = 'POST' and p.club_id = :cid
+                    left join user_account au on au.id = p.author_user_id
+                    union all
+                    select 'COMMENT' as ctype, pc.id as cid, left(pc.content, 160) as snippet,
+                           pc.author_user_id, au.username as author_username,
+                           cr.id as report_id, cr.status, cr.created_at as report_at
+                    from content_report cr
+                    join post_comment pc on pc.id = cr.content_id and cr.content_type = 'COMMENT'
+                    join post p on p.id = pc.post_id and p.club_id = :cid
+                    left join user_account au on au.id = pc.author_user_id
+                ) x
+                group by x.ctype, x.cid
+                order by open_reports desc, total_reports desc, latest_report_at desc
+                """;
+        return jdbc.query(sql, p, (rs, i) -> new ClubReportedContent(
+                rs.getString("ctype"), (Long) rs.getObject("cid"), rs.getString("snippet"),
+                (Long) rs.getObject("author_user_id"), rs.getString("author_username"),
+                rs.getLong("open_reports"), rs.getLong("total_reports"),
+                (Long) rs.getObject("latest_report_id"), ts(rs, "latest_report_at")));
+    }
+
+    @Override
     public ClubStats stats() {
         String sql = """
                 select
@@ -188,6 +268,40 @@ public class ClubQueryJdbc implements ClubQuery {
                 rs.getString("role"),
                 rs.getString("status"),
                 ts(rs, "joined_at")));
+    }
+
+    @Override
+    public Page<ClubMemberRow> members(Long clubId, String role, String status, String q, Pageable pageable) {
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("id", clubId)
+                .addValue("role", role)
+                .addValue("status", status)
+                .addValue("q", (q == null || q.isBlank()) ? null : "%" + q.trim() + "%");
+        String where = "where m.club_id = :id "
+                + "and (cast(:role as varchar) is null or m.role = :role) "
+                + "and (cast(:status as varchar) is null or m.status = :status) "
+                + "and (cast(:q as varchar) is null or u.username ilike :q) ";
+
+        Long total = jdbc.queryForObject(
+                "select count(*) from club_membership m left join user_account u on u.id = m.user_id " + where,
+                p, Long.class);
+        long count = total == null ? 0 : total;
+        if (count == 0) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        p.addValue("limit", pageable.getPageSize()).addValue("offset", pageable.getOffset());
+        // Owners/admins first, then newest members.
+        String sql = "select m.user_id, u.username, m.role, m.status, m.joined_at "
+                + "from club_membership m left join user_account u on u.id = m.user_id " + where
+                + "order by case m.role when 'OWNER' then 0 when 'ADMIN' then 1 else 2 end, m.joined_at desc "
+                + "limit :limit offset :offset";
+        List<ClubMemberRow> rows = jdbc.query(sql, p, (rs, i) -> new ClubMemberRow(
+                (Long) rs.getObject("user_id"),
+                rs.getString("username"),
+                rs.getString("role"),
+                rs.getString("status"),
+                ts(rs, "joined_at")));
+        return new PageImpl<>(rows, pageable, count);
     }
 
     private List<ClubEventRow> events(Long clubId) {

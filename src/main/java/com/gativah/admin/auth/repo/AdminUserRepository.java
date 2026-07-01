@@ -1,5 +1,6 @@
 package com.gativah.admin.auth.repo;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.gativah.admin.auth.model.AdminUser;
@@ -17,4 +18,10 @@ public interface AdminUserRepository extends JpaRepository<AdminUser, Long> {
     Page<AdminUser> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     long countByRoles_Id(Long roleId);
+
+    long countByMfaEnrolledTrue();
+
+    long countByStatus(String status);
+
+    List<AdminUser> findByMfaEnrolledFalseAndStatusOrderByNameAsc(String status);
 }

@@ -5,7 +5,10 @@ import java.util.Set;
 
 import com.gativah.admin.audit.service.AuditService;
 import com.gativah.admin.client.PacegritInternalClient;
+import com.gativah.admin.content.dto.ContentDetail;
+import com.gativah.admin.content.dto.ContentReportRef;
 import com.gativah.admin.content.dto.ContentRow;
+import com.gativah.admin.content.dto.ContentStats;
 import com.gativah.admin.content.dto.StoryRow;
 import com.gativah.admin.content.query.ContentQuery;
 
@@ -34,9 +37,33 @@ public class ContentServiceImpl implements ContentService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<ContentRow> list(List<String> types, String q, List<String> statuses, Pageable pageable) {
+    public Page<ContentRow> list(List<String> types, String q, List<String> statuses, boolean reportedOnly, Pageable pageable) {
         String like = (q == null || q.isBlank()) ? null : "%" + q.trim() + "%";
-        return query.search(normalizeTypes(types), like, removedFlags(statuses), pageable);
+        return query.search(normalizeTypes(types), like, removedFlags(statuses), reportedOnly, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ContentStats stats() {
+        return query.stats();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ContentReportRef> reportsFor(String type, Long id) {
+        String ct = normalizeType(type);
+        return ct == null ? List.of() : query.reportsFor(ct, id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ContentDetail contentDetail(String type, Long id) {
+        String ct = normalizeType(type);
+        ContentDetail detail = ct == null ? null : query.contentDetail(ct, id);
+        if (detail == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Content not found: " + type + " #" + id);
+        }
+        return detail;
     }
 
     @Override

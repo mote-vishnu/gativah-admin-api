@@ -5,8 +5,11 @@ import java.util.List;
 import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.users.dto.BanRequest;
 import com.gativah.admin.users.dto.SuspendRequest;
+import com.gativah.admin.users.dto.UserBilling;
+import com.gativah.admin.users.dto.UserContentResponse;
 import com.gativah.admin.users.dto.UserDetail;
 import com.gativah.admin.users.dto.UserInsights;
+import com.gativah.admin.users.dto.UserReportsResponse;
 import com.gativah.admin.users.dto.UserSummary;
 
 import org.springframework.data.domain.Page;
@@ -30,4 +33,10 @@ public interface UserAdminService {
     UserDetail setVerified(Long actorAdminId, Long userId, boolean grant);
 
     UserInsights insights(Long userId);
+
+    UserContentResponse content(Long userId);
+
+    UserBilling billing(Long userId);
+
+    UserReportsResponse reportsAgainst(Long userId);
 }

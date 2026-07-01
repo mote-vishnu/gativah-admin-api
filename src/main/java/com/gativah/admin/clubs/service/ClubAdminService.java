@@ -4,6 +4,9 @@ import java.util.List;
 
 import com.gativah.admin.audit.dto.AuditEntryRow;
 import com.gativah.admin.clubs.dto.ClubDetail;
+import com.gativah.admin.clubs.dto.ClubEventDetail;
+import com.gativah.admin.clubs.dto.ClubMemberRow;
+import com.gativah.admin.clubs.dto.ClubReportedContent;
 import com.gativah.admin.clubs.dto.ClubStats;
 import com.gativah.admin.clubs.dto.ClubSummary;
 
@@ -18,6 +21,8 @@ public interface ClubAdminService {
 
     ClubDetail detail(Long id);
 
+    Page<ClubMemberRow> members(Long id, String role, String status, String q, Pageable pageable);
+
     Page<AuditEntryRow> audit(Long id, Pageable pageable);
 
     ClubDetail removeClub(Long actorAdminId, Long id, String reason);
@@ -27,4 +32,10 @@ public interface ClubAdminService {
     ClubDetail removeMember(Long actorAdminId, Long id, Long userId);
 
     ClubDetail removeEvent(Long actorAdminId, Long id, Long eventId, String reason);
+
+    ClubEventDetail eventDetail(Long clubId, Long eventId);
+
+    ClubEventDetail restoreEvent(Long actorAdminId, Long clubId, Long eventId);
+
+    List<ClubReportedContent> reportedContent(Long clubId);
 }

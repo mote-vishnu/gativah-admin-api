@@ -10,9 +10,13 @@ import com.gativah.admin.users.dto.ActivityPoint;
 import com.gativah.admin.users.dto.DeviceRow;
 import com.gativah.admin.users.dto.SanctionRow;
 import com.gativah.admin.users.dto.SubscriptionInfo;
+import com.gativah.admin.users.dto.UserContentRow;
 import com.gativah.admin.users.dto.UserDetail;
+import com.gativah.admin.users.dto.UserReportRow;
 import com.gativah.admin.users.dto.UserSummary;
+import com.gativah.admin.users.dto.UserTxnRow;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,9 +37,23 @@ public class UsersQueryJdbc implements UsersQuery {
             """;
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final String mediaBaseUrl;
 
-    public UsersQueryJdbc(NamedParameterJdbcTemplate jdbc) {
+    public UsersQueryJdbc(NamedParameterJdbcTemplate jdbc,
+                          @Value("${pacegrit.media.base-url:http://localhost:8081}") String mediaBaseUrl) {
         this.jdbc = jdbc;
+        this.mediaBaseUrl = mediaBaseUrl;
+    }
+
+    /** Resolve a stored profile photo path to an absolute, browser-loadable URL. */
+    private String resolvePhoto(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        if (url.startsWith("http")) {
+            return url;
+        }
+        return url.startsWith("/") ? mediaBaseUrl + url : url;
     }
 
     // Whitelisted ORDER BY — the sort key comes from the client, so it is mapped
@@ -70,7 +88,7 @@ public class UsersQueryJdbc implements UsersQuery {
             return new PageImpl<>(List.of(), pageable, 0);
         }
 
-        String sql = "select ua.id, ua.username, ua.email, ua.first_name, ua.last_name, ua.verified, "
+        String sql = "select ua.id, ua.username, ua.email, ua.first_name, ua.last_name, ua.photo_url, ua.verified, "
                 + "ua.account_status, ua.created_at, "
                 + "(select s.state from subscription s where s.user_id = ua.id "
                 + " order by s.current_period_end desc nulls last limit 1) as sub_state "
@@ -84,6 +102,7 @@ public class UsersQueryJdbc implements UsersQuery {
                 rs.getString("username"),
                 rs.getString("email"),
                 fullName(rs.getString("first_name"), rs.getString("last_name")),
+                resolvePhoto(rs.getString("photo_url")),
                 rs.getString("account_status"),
                 rs.getBoolean("verified"),
                 rs.getString("sub_state"),
@@ -108,7 +127,7 @@ public class UsersQueryJdbc implements UsersQuery {
                     rs.getString("email"),
                     rs.getString("first_name"),
                     rs.getString("last_name"),
-                    rs.getString("photo_url"),
+                    resolvePhoto(rs.getString("photo_url")),
                     rs.getBoolean("verified"),
                     rs.getString("account_status"),
                     ts(rs, "suspended_until"),
@@ -175,6 +194,30 @@ public class UsersQueryJdbc implements UsersQuery {
     }
 
     @Override
+    public long followerCount(Long id) {
+        Long n = jdbc.queryForObject(
+                "select count(*) from follow where followed_user_id = :id and status = 'ACCEPTED'",
+                new MapSqlParameterSource("id", id), Long.class);
+        return n == null ? 0 : n;
+    }
+
+    @Override
+    public long followingCount(Long id) {
+        Long n = jdbc.queryForObject(
+                "select count(*) from follow where follower_user_id = :id and status = 'ACCEPTED'",
+                new MapSqlParameterSource("id", id), Long.class);
+        return n == null ? 0 : n;
+    }
+
+    @Override
+    public long postCount(Long id) {
+        Long n = jdbc.queryForObject(
+                "select count(*) from post where author_user_id = :id and deleted_at is null",
+                new MapSqlParameterSource("id", id), Long.class);
+        return n == null ? 0 : n;
+    }
+
+    @Override
     public List<DeviceRow> devices(Long id) {
         String sql = "select platform, app_version, locale, last_seen_at from device_token "
                 + "where user_id = :id and deleted_at is null order by last_seen_at desc nulls last limit 20";
@@ -195,6 +238,72 @@ public class UsersQueryJdbc implements UsersQuery {
                 rs.getObject("activity_date", LocalDate.class),
                 rs.getLong("steps_count"),
                 rs.getInt("active_minutes")));
+    }
+
+    @Override
+    public List<UserContentRow> content(Long id, int limit) {
+        String sql = """
+                select type, cid, snippet, kind, created_at, removed, views, open_reports from (
+                    select 'POST' as type, p.id as cid, left(p.content, 160) as snippet, p.kind, p.created_at,
+                           (p.deleted_at is not null) as removed, p.view_count as views,
+                           (select count(*) from content_report cr where cr.content_type = 'POST' and cr.content_id = p.id
+                                and cr.status in ('PENDING','REVIEWING')) as open_reports
+                    from post p where p.author_user_id = :id
+                    union all
+                    select 'COMMENT' as type, c.id as cid, left(c.content, 160) as snippet, null as kind, c.created_at,
+                           (c.deleted_at is not null) as removed, 0 as views,
+                           (select count(*) from content_report cr where cr.content_type = 'COMMENT' and cr.content_id = c.id
+                                and cr.status in ('PENDING','REVIEWING')) as open_reports
+                    from post_comment c where c.author_user_id = :id
+                ) u order by created_at desc limit :limit
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("id", id).addValue("limit", limit);
+        return jdbc.query(sql, params, (rs, i) -> new UserContentRow(
+                rs.getString("type"),
+                rs.getLong("cid"),
+                rs.getString("snippet"),
+                rs.getString("kind"),
+                ts(rs, "created_at"),
+                rs.getBoolean("removed"),
+                rs.getLong("views"),
+                rs.getLong("open_reports")));
+    }
+
+    @Override
+    public List<UserTxnRow> transactions(Long id, int limit) {
+        String sql = "select id, type, status, gross_amount, gross_currency, platform, "
+                + "coalesce(purchased_at, created_at) as purchased_at "
+                + "from billing_transaction where user_id = :id "
+                + "order by coalesce(purchased_at, created_at) desc limit :limit";
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("id", id).addValue("limit", limit);
+        return jdbc.query(sql, params, (rs, i) -> new UserTxnRow(
+                rs.getLong("id"),
+                rs.getString("type"),
+                rs.getString("status"),
+                rs.getBigDecimal("gross_amount"),
+                rs.getString("gross_currency"),
+                rs.getString("platform"),
+                ts(rs, "purchased_at")));
+    }
+
+    @Override
+    public List<UserReportRow> reportsAgainstList(Long id, int limit) {
+        String sql = "select cr.id, cr.content_type, cr.content_id, "
+                + "left(coalesce(p.content, c.content), 160) as snippet, cr.reason, cr.status, cr.created_at "
+                + "from content_report cr "
+                + "left join post p on cr.content_type = 'POST' and p.id = cr.content_id "
+                + "left join post_comment c on cr.content_type = 'COMMENT' and c.id = cr.content_id "
+                + "where coalesce(p.author_user_id, c.author_user_id) = :id "
+                + "order by cr.created_at desc limit :limit";
+        MapSqlParameterSource params = new MapSqlParameterSource().addValue("id", id).addValue("limit", limit);
+        return jdbc.query(sql, params, (rs, i) -> new UserReportRow(
+                rs.getLong("id"),
+                rs.getString("content_type"),
+                rs.getLong("content_id"),
+                rs.getString("snippet"),
+                rs.getString("reason"),
+                rs.getString("status"),
+                ts(rs, "created_at")));
     }
 
     private static String fullName(String first, String last) {

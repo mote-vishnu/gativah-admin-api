@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import jakarta.servlet.http.HttpServletRequest;
 
 import com.gativah.admin.audit.dto.AuditEntryRow;
+import com.gativah.admin.audit.dto.AuditStats;
 import com.gativah.admin.audit.model.AdminAuditLog;
 import com.gativah.admin.audit.repo.AdminAuditLogRepository;
 
@@ -52,10 +53,28 @@ public class AuditService {
     @Transactional(readOnly = true)
     public Page<AuditEntryRow> list(Long actorId, String action, String targetType, String targetId,
                                     LocalDateTime from, LocalDateTime to, String q, Pageable pageable) {
-        return repo.search(actorId, blankToNull(action), blankToNull(targetType), blankToNull(targetId),
-                        from, to, blankToNull(q), pageable)
+        return list(actorId, action, null, targetType, targetId, from, to, q, pageable);
+    }
+
+    /** As {@link #list}, plus a coarse {@code category} filter (MODERATION/FINANCE/STAFF/AUTH/LEGAL/OTHER). */
+    @Transactional(readOnly = true)
+    public Page<AuditEntryRow> list(Long actorId, String action, String category, String targetType, String targetId,
+                                    LocalDateTime from, LocalDateTime to, String q, Pageable pageable) {
+        return repo.search(actorId, blankToNull(action), blankToNull(category), blankToNull(targetType),
+                        blankToNull(targetId), from, to, blankToNull(q), pageable)
                 .map(a -> new AuditEntryRow(a.getId(), a.getAdminUserId(), a.getAction(),
                         a.getTargetType(), a.getTargetId(), a.getSummary(), a.getIp(), a.getCreatedAt()));
+    }
+
+    /** KPI counts for the audit header, scoped to {@code actorId} (null = all operators). */
+    @Transactional(readOnly = true)
+    public AuditStats stats(Long actorId) {
+        LocalDateTime now = LocalDateTime.now();
+        long total = repo.countScoped(actorId, null);
+        long today = repo.countScoped(actorId, now.toLocalDate().atStartOfDay());
+        long last7d = repo.countScoped(actorId, now.minusDays(7));
+        long operators = actorId == null ? repo.countOperators() : (total > 0 ? 1 : 0);
+        return new AuditStats(total, today, last7d, operators);
     }
 
     private static String blankToNull(String s) {

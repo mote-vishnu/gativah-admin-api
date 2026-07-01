@@ -8,6 +8,7 @@ public record UserSummary(
         String username,
         String email,
         String fullName,
+        String photoUrl,
         String accountStatus,
         boolean verified,
         String subscriptionState,

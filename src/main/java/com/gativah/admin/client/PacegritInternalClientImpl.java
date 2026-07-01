@@ -112,6 +112,11 @@ public class PacegritInternalClientImpl implements PacegritInternalClient {
         post("/internal/admin/clubs/" + clubId + "/events/" + eventId + "/remove", actorAdminId, new ClubReasonBody(reason));
     }
 
+    @Override
+    public void restoreClubEvent(Long actorAdminId, Long clubId, Long eventId) {
+        post("/internal/admin/clubs/" + clubId + "/events/" + eventId + "/restore", actorAdminId, null);
+    }
+
     private void post(String path, Long actorAdminId, Object body) {
         RestClient.RequestBodySpec spec = client.post()
                 .uri(path)
