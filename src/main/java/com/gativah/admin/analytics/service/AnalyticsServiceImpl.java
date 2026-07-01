@@ -9,11 +9,14 @@ import java.util.Map;
 
 import com.gativah.admin.analytics.dto.ActiveUsersResponse;
 import com.gativah.admin.analytics.dto.CohortSize;
+import com.gativah.admin.analytics.dto.CountryCount;
+import com.gativah.admin.analytics.dto.CountryStat;
 import com.gativah.admin.analytics.dto.EngagementResponse;
 import com.gativah.admin.analytics.dto.EventBreakdownResponse;
 import com.gativah.admin.analytics.dto.EventBreakdownRow;
 import com.gativah.admin.analytics.dto.FunnelResponse;
 import com.gativah.admin.analytics.dto.FunnelStep;
+import com.gativah.admin.analytics.dto.GeoResponse;
 import com.gativah.admin.analytics.dto.OverviewKpis;
 import com.gativah.admin.analytics.dto.PlatformResponse;
 import com.gativah.admin.analytics.dto.PlatformRow;
@@ -126,6 +129,19 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             prev = u;
         }
         return new FunnelResponse(steps);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GeoResponse geo() {
+        List<CountryCount> raw = query.geoByCountry();
+        long mapped = raw.stream().mapToLong(CountryCount::users).sum();
+        long total = query.totalUsers();
+        List<CountryStat> countries = raw.stream()
+                .map(c -> new CountryStat(c.code(), Countries.name(c.code()), c.users(),
+                        mapped > 0 ? round1(c.users() * 100.0 / mapped) : 0))
+                .toList();
+        return new GeoResponse(total, mapped, countries);
     }
 
     @Override

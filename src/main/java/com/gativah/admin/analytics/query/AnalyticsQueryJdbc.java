@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.gativah.admin.analytics.dto.CohortSize;
+import com.gativah.admin.analytics.dto.CountryCount;
 import com.gativah.admin.analytics.dto.EventBreakdownRow;
 import com.gativah.admin.analytics.dto.PlatformRow;
 import com.gativah.admin.analytics.dto.RetentionCell;
@@ -191,6 +192,31 @@ public class AnalyticsQueryJdbc implements AnalyticsQuery {
         return jdbc.query(sql, new MapSqlParameterSource().addValue("from", from),
                 (rs, i) -> new RetentionCell(rs.getObject("cohort_week", LocalDate.class),
                         rs.getInt("week_offset"), rs.getLong("retained")));
+    }
+
+    @Override
+    public List<CountryCount> geoByCountry() {
+        String sql = """
+                select country, count(*) as users from (
+                    select ua.id, (
+                        select bt.country_code from billing_transaction bt
+                        where bt.user_id = ua.id and bt.country_code is not null
+                        order by bt.created_at desc limit 1
+                    ) as country
+                    from user_account ua
+                ) uc
+                where country is not null
+                group by country
+                order by users desc
+                """;
+        return jdbc.query(sql, new MapSqlParameterSource(),
+                (rs, i) -> new CountryCount(rs.getString("country"), rs.getLong("users")));
+    }
+
+    @Override
+    public long totalUsers() {
+        Long n = jdbc.queryForObject("select count(*) from user_account", new MapSqlParameterSource(), Long.class);
+        return n == null ? 0 : n;
     }
 
     private long scalar(String sql, MapSqlParameterSource params) {

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.gativah.admin.analytics.dto.CohortSize;
+import com.gativah.admin.analytics.dto.CountryCount;
 import com.gativah.admin.analytics.dto.EventBreakdownRow;
 import com.gativah.admin.analytics.dto.PlatformRow;
 import com.gativah.admin.analytics.dto.RetentionCell;
@@ -47,4 +48,10 @@ public interface AnalyticsQuery {
 
     /** Retention cells (cohort week × week offset) for users created since {@code from}. */
     List<RetentionCell> retentionCells(LocalDateTime from);
+
+    /** Distinct users grouped by their resolved country (ISO alpha-2). */
+    List<CountryCount> geoByCountry();
+
+    /** Total user_account rows (for mapped-vs-total coverage). */
+    long totalUsers();
 }

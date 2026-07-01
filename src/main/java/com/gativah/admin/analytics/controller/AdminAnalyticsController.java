@@ -4,6 +4,7 @@ import com.gativah.admin.analytics.dto.ActiveUsersResponse;
 import com.gativah.admin.analytics.dto.EngagementResponse;
 import com.gativah.admin.analytics.dto.EventBreakdownResponse;
 import com.gativah.admin.analytics.dto.FunnelResponse;
+import com.gativah.admin.analytics.dto.GeoResponse;
 import com.gativah.admin.analytics.dto.OverviewKpis;
 import com.gativah.admin.analytics.dto.PlatformResponse;
 import com.gativah.admin.analytics.dto.RetentionResponse;
@@ -60,6 +61,11 @@ public class AdminAnalyticsController {
     @GetMapping("/funnel")
     public FunnelResponse funnel(@RequestParam(defaultValue = "30") int days) {
         return service.funnel(clampDays(days));
+    }
+
+    @GetMapping("/geo")
+    public GeoResponse geo() {
+        return service.geo();
     }
 
     private static int clampDays(int days) {
